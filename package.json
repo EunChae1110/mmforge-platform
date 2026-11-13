@@ -1,0 +1,24 @@
+{
+  "name": "mmforge-platform",
+  "version": "0.1.0",
+  "description": "Cursor skill for mouse-operated menu UI prototypes in a local canvas.",
+  "type": "module",
+  "files": [
+    "SKILL.md",
+    "README.md",
+    "references",
+    "assets",
+    "scripts/link-skill.mjs"
+  ],
+  "scripts": {
+    "postinstall": "node scripts/link-skill.mjs"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "keywords": [
+    "cursor",
+    "agent-skill",
+    "mmforge"
+  ]
+}
