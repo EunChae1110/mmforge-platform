@@ -17,7 +17,7 @@ const draftDestinations = [
 type View = typeof centeredView
 type Tool = 'pointer' | 'pan' | 'select'
 type Selection = ReturnType<typeof elementContext> & {
-  element: HTMLElement
+  element: Element
   status: string
 }
 type Drag = {
@@ -73,13 +73,14 @@ export function CanvasStage({ designPath, previewWidth, controlsRef, sidebarOpen
   const dragRef = useRef<Drag | null>(null)
   const [manualView, setManualView] = useState<View | null>(null)
   const [tool, setTool] = useState<Tool>('pointer')
-  const [hovered, setHovered] = useState<HTMLElement | null>(null)
+  const [hovered, setHovered] = useState<Element | null>(null)
   const [selection, setSelection] = useState<Selection | null>(null)
   const [dragging, setDragging] = useState(false)
   const [fitView, setFitView] = useState<View>(centeredView)
   const [dimensions, setDimensions] = useState('')
+  const [previewVisible, setPreviewVisible] = useState(false)
   const view = manualView ?? fitView
-  const selecting = tool === 'select'
+  const selecting = tool === 'select' && Boolean(dimensions)
   const hoverInfo = selecting && !previewLocked && hovered ? describeElement(hovered) : null
 
   useEffect(() => {
@@ -200,10 +201,14 @@ export function CanvasStage({ designPath, previewWidth, controlsRef, sidebarOpen
     const title = controls.querySelector<HTMLElement>('.canvas-title')!
 
     const measure = () => {
+      const { offsetWidth: width, offsetHeight: height } = preview
+      const hasPreview = width > 0 && height > 0 && !preview.querySelector(':scope > [data-mmforge-preview-error]')
+      setDimensions(hasPreview ? width + ' × ' + height + ' px' : '')
+      if (!hasPreview) return
+
       const bounds = (sidebarOpen ? controls : title).getBoundingClientRect()
       const nextFit = fitPreview(viewport, frame, bounds, toolbar)
       setFitView((current) => current.x === nextFit.x && current.y === nextFit.y && current.zoom === nextFit.zoom ? current : nextFit)
-      setDimensions(preview.offsetWidth + ' × ' + preview.offsetHeight + ' px')
     }
 
     const observer = new ResizeObserver(measure)
@@ -212,8 +217,16 @@ export function CanvasStage({ designPath, previewWidth, controlsRef, sidebarOpen
     observer.observe(frame)
     observer.observe(preview)
     observer.observe(controls)
+    const content = new MutationObserver(measure)
+    content.observe(preview, { childList: true })
+    const visibility = new IntersectionObserver(([entry]) => setPreviewVisible(entry.intersectionRatio > 0), { root: viewport })
+    visibility.observe(preview)
     measure()
-    return () => observer.disconnect()
+    return () => {
+      observer.disconnect()
+      content.disconnect()
+      visibility.disconnect()
+    }
   }, [controlsRef, designPath, sidebarOpen])
 
   const zoomBy = useCallback((factor: number, x = fitView.x, y = fitView.y) => {
@@ -306,16 +319,23 @@ export function CanvasStage({ designPath, previewWidth, controlsRef, sidebarOpen
         data-select-tool={selecting}
         data-dragging={dragging}
         onPointerDownCapture={startPan}
-        onPointerMove={movePan}
+        onPointerMoveCapture={movePan}
         onPointerLeave={() => setHovered(null)}
-        onPointerUp={stopPan}
+        onPointerUpCapture={(event) => {
+          if (selecting && !dragRef.current && event.button === 0) {
+            event.preventDefault()
+            event.stopPropagation()
+            selectElement(event.target)
+          }
+          stopPan(event)
+        }}
         onPointerCancel={stopPan}
         onLostPointerCapture={stopPan}
         onClickCapture={(event) => {
           if (!selecting) return
           event.preventDefault()
           event.stopPropagation()
-          selectElement(event.target)
+          if (event.detail === 0) selectElement(event.target)
         }}
         onKeyDownCapture={(event) => {
           if (!selecting || (event.key !== 'Enter' && event.key !== ' ')) return
@@ -334,7 +354,7 @@ export function CanvasStage({ designPath, previewWidth, controlsRef, sidebarOpen
             }}
           >
             <div className="canvas-preview" ref={previewRef}>{children}</div>
-            <figcaption className="canvas-measure" aria-label="Menu dimensions">{dimensions}</figcaption>
+            {dimensions && <figcaption className="canvas-measure" aria-label="Menu dimensions" hidden={!previewVisible}>{dimensions}</figcaption>}
           </figure>
         ) : children}
         {hoverInfo && (
@@ -345,7 +365,7 @@ export function CanvasStage({ designPath, previewWidth, controlsRef, sidebarOpen
         )}
       </div>
 
-      {selection && !previewLocked && (
+      {selection && dimensions && !previewLocked && (
         <div className="canvas-selection" role="group" aria-label="Selected element">
           <div className="canvas-selection-details">
             <strong title={selection.label}>{selection.label}</strong>
@@ -413,7 +433,7 @@ export function CanvasStage({ designPath, previewWidth, controlsRef, sidebarOpen
           aria-label="Select element"
           aria-pressed={selecting}
           title="Select element for AI feedback"
-          disabled={!designPath}
+          disabled={!dimensions}
           onClick={() => chooseTool(selecting ? 'pointer' : 'select')}
         >
           <Scan aria-hidden="true" />

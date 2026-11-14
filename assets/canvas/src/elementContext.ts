@@ -26,32 +26,45 @@ type AnnotationDocument = Document & {
   }
 }
 
-export function previewElement(target: EventTarget | null, preview: HTMLElement | null) {
+const controls = 'button, a[href], input, select, textarea, label, summary, [contenteditable="true"], ' +
+  [...roleTypes.keys()].filter(role => role !== 'heading' && role !== 'img').map(role => `[role~="${role}"]`).join(', ')
+
+export function previewElement(target: EventTarget | null, preview: HTMLElement | null): Element | null {
   if (!(target instanceof Element) || !preview || target === preview || !preview.contains(target)) return null
 
-  const control = target.closest('button, a[href], input, select, textarea, label, [role], [contenteditable="true"]')
-  const element = control ?? (target instanceof SVGElement ? target.closest('svg')?.parentElement : target)
-  return element instanceof HTMLElement && element !== preview && preview.contains(element) ? element : null
+  const control = target.closest(controls)
+  if (control && control !== preview && preview.contains(control)) {
+    if (target !== control && target instanceof HTMLElement && !target.closest('[aria-hidden="true"]') && textOf(target).trim()) {
+      return target
+    }
+    return control
+  }
+  return target.closest('svg') ?? target
 }
 
-function elementType(element: HTMLElement): string {
+function elementType(element: Element): string {
   const role = element.getAttribute('role')?.trim().split(/\s+/).find((role) => roleTypes.has(role))
   if (role) return roleTypes.get(role)!
   if (element instanceof HTMLInputElement) return inputTypes.get(element.type) ?? 'Text field'
   if (element instanceof HTMLSelectElement) return element.multiple || element.size > 1 ? 'List box' : 'Dropdown'
-  if (element instanceof HTMLTextAreaElement || element.isContentEditable) return 'Text area'
+  if (element instanceof HTMLTextAreaElement || (element instanceof HTMLElement && element.isContentEditable)) return 'Text area'
   if (element instanceof HTMLButtonElement || element.localName === 'summary') return 'Button'
   if (element instanceof HTMLAnchorElement && element.hasAttribute('href')) return 'Link'
   if (/^h[1-6]$/.test(element.localName)) return 'Heading'
   if (element instanceof HTMLImageElement) return 'Image'
+  if (element instanceof SVGSVGElement) return 'Icon'
   if (element instanceof HTMLLabelElement) return 'Label'
   if (element.matches('div, section, article, header, footer, nav, main, fieldset, ul, ol')) return 'Container'
-  return element.innerText?.trim() ? 'Text' : 'Element'
+  return textOf(element).trim() ? 'Text' : 'Element'
 }
 
-function selectorFor(element: HTMLElement, preview: HTMLElement) {
+function textOf(element: Element) {
+  return (element instanceof HTMLElement ? element.innerText : element.textContent) ?? ''
+}
+
+function selectorFor(element: Element, preview: HTMLElement) {
   const parts = []
-  for (let node: HTMLElement | null = element; node && node !== preview; node = node.parentElement) {
+  for (let node: Element | null = element; node && node !== preview; node = node.parentElement) {
     const tag = node.localName
     const classes = [...node.classList].slice(0, 2).map((name) => '.' + CSS.escape(name)).join('')
     const part = tag + classes
@@ -63,13 +76,13 @@ function selectorFor(element: HTMLElement, preview: HTMLElement) {
   return '.canvas-preview > ' + parts.join(' > ')
 }
 
-function ariaName(element: HTMLElement) {
+function ariaName(element: Element) {
   const labelledBy = element.getAttribute('aria-labelledby')?.trim().split(/\s+/)
     .map((id) => element.ownerDocument.getElementById(id)?.innerText ?? '').join(' ').trim()
   return labelledBy || element.getAttribute('aria-label')?.trim()
 }
 
-function locationFor(element: HTMLElement, preview: HTMLElement, label: string) {
+function locationFor(element: Element, preview: HTMLElement, label: string) {
   const parts: string[] = []
   for (let group = element.parentElement; group && group !== preview && parts.length < 2; group = group.parentElement) {
     if (!group.matches('fieldset, section, article, nav, aside, header, footer, [role="group"], [role="tabpanel"], [role="region"]')) continue
@@ -81,7 +94,7 @@ function locationFor(element: HTMLElement, preview: HTMLElement, label: string) 
   return parts.join(' › ')
 }
 
-export function describeElement(element: HTMLElement) {
+export function describeElement(element: Element) {
   const control = element instanceof HTMLLabelElement && element.control instanceof HTMLElement ? element.control : element
   const type = elementType(control)
   const controlLabels = 'labels' in control
@@ -91,12 +104,13 @@ export function describeElement(element: HTMLElement) {
       return text.textContent
     }).join(' ')
     : ''
-  const label = (ariaName(control) || controlLabels.trim() || control.getAttribute('alt') || control.innerText || '')
+  const label = (ariaName(control) || controlLabels.trim() || control.getAttribute('alt') || textOf(control) ||
+    control.getAttribute('title') || control.getAttribute('placeholder') || '')
     .replace(/\s+/g, ' ').trim().slice(0, 100)
   return { label, type, fallbackLabel: control.localName }
 }
 
-export function elementContext(element: HTMLElement, preview: HTMLElement, designPath: string) {
+export function elementContext(element: Element, preview: HTMLElement, designPath: string) {
   const { label, type, fallbackLabel } = describeElement(element)
   const location = locationFor(element, preview, label)
   const selector = selectorFor(element, preview)
@@ -104,7 +118,7 @@ export function elementContext(element: HTMLElement, preview: HTMLElement, desig
   const prompt = [
     'Design: ' + designPath,
     'Element: ' + (location ? location + ' › ' : '') + target,
-    ...(!label ? ['Selector: ' + selector] : []),
+    ...(!label || type === 'Text' ? ['Selector: ' + selector] : []),
     'Change: ',
   ].join('\n')
   return { designPath, label: label || fallbackLabel, type, location, selector, prompt }
@@ -114,10 +128,12 @@ export function supportsElementAnnotations() {
   return typeof (document as AnnotationDocument).oai?.annotation?.request === 'function'
 }
 
-export function requestElementAnnotation(element: HTMLElement, context: ReturnType<typeof elementContext>) {
+export function requestElementAnnotation(element: Element, context: ReturnType<typeof elementContext>) {
   const annotation = (document as AnnotationDocument).oai?.annotation
+  const anchor = element instanceof HTMLElement ? element : element.closest('svg')?.parentElement
+  if (!(anchor instanceof HTMLElement)) return false
   try {
-    return annotation?.request?.(element, {
+    return annotation?.request?.(anchor, {
       initialComment: 'Update ' + context.label + ' in this mod menu: ',
       metadata: {
         Design: context.designPath.slice(0, 256),

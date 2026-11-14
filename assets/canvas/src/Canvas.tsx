@@ -1,9 +1,10 @@
 import * as DropdownMenu from '@radix-ui/react-dropdown-menu'
-import { Copy, Ellipsis, ExternalLink, Github, LayoutTemplate, PanelLeftClose, PanelLeftOpen } from 'lucide-react'
+import { Copy, Ellipsis, ExternalLink, Github, LayoutTemplate, PanelLeftClose, PanelLeftOpen, SquareDashed } from 'lucide-react'
 import { Component, useEffect, useRef, useState, type ComponentType, type ReactNode } from 'react'
 import designEdits from 'virtual:design-edits'
 import { CanvasStage } from './CanvasStage'
 import { DesignActivityNotice, useDesignActivity } from './DesignActivityNotice'
+import { ReleaseUpdates } from './ReleaseUpdates'
 import { designSavedEvent, type DesignSaved } from './designActivity'
 
 type DesignModule = {
@@ -41,7 +42,7 @@ class PreviewBoundary extends Component<{ children: ReactNode }, { failed: boole
 
   render() {
     if (this.state.failed) {
-      return <p className="canvas-message" role="alert">This design couldn’t render. Check the browser console.</p>
+      return <p className="canvas-message" data-mmforge-preview-error role="alert">This design couldn’t render. Check the browser console.</p>
     }
     return this.props.children
   }
@@ -94,7 +95,7 @@ export function Canvas() {
     return () => window.clearTimeout(timeout)
   }, [copyStatus])
 
-  function selectDesign(nextFilename: string) {
+  function selectDesign(nextFilename: string | null) {
     history.replaceState({ ...history.state, followDesign: null }, '', designUrl(nextFilename))
     setFilename(nextFilename)
   }
@@ -128,7 +129,19 @@ export function Canvas() {
         </div>
         <div className="canvas-sidebar" inert={!sidebarOpen} aria-hidden={!sidebarOpen}>
           <nav id="design-sidebar" className="canvas-files" aria-label="Design files">
-            <h2>Designs</h2>
+            <div className="canvas-files-header">
+              <h2>Designs</h2>
+              <button
+                type="button"
+                className="canvas-file-clear"
+                aria-label="Blank canvas"
+                title="Blank canvas"
+                disabled={filename === null}
+                onClick={() => selectDesign(null)}
+              >
+                <SquareDashed size={13} aria-hidden="true" />
+              </button>
+            </div>
             <ul className="canvas-file-list">
               {designs.map(({ filename }) => {
                 const name = filename.slice(0, -'.tsx'.length)
@@ -198,9 +211,10 @@ export function Canvas() {
       >
         <Github aria-hidden="true" />
       </a>
+      {import.meta.env.DEV && <ReleaseUpdates activityActive={activityActive} />}
 
       <CanvasStage
-        key={design?.filename}
+        key={filename ?? undefined}
         designPath={Preview ? 'designs/' + design.filename : undefined}
         previewWidth={design?.width ?? 536}
         controlsRef={controlsRef}

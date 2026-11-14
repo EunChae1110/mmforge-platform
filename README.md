@@ -4,6 +4,9 @@
   <a href="https://github.com/EunChae1110/mmforge-platform">
     <img src="https://img.shields.io/github/stars/EunChae1110/mmforge-platform?style=social" alt="GitHub stars">
   </a>
+  <a href="https://github.com/EunChae1110/mmforge-platform/releases/latest">
+    <img src="https://img.shields.io/github/v/release/EunChae1110/mmforge-platform?display_name=tag&amp;label=version" alt="Latest MMForge release version">
+  </a>
 </div>
 
 ![SpectraX menu open in the MMForge canvas](assets/readme/spectrax.png)
@@ -48,6 +51,14 @@ npm run dev
 ```
 
 Open the URL Vite prints. The root URL is an empty canvas. A design is `http://localhost:5173/?design=example.tsx`.
+
+## Updates
+
+The local canvas checks [GitHub Releases](https://github.com/EunChae1110/mmforge-platform/releases) on launch. When a newer stable release is available, MMForge shows its release notes and lets you install it or keep your current version. Use the download icon beside the GitHub link to check again or revisit a skipped release.
+
+In-app installation uses Git and npm. It preserves the `designs/` folder and asks you to restart the local canvas after installation. For a checkout of the MMForge skill repository, commit or stash local changes before installing. A standalone canvas that belongs to your own Git repository should be upgraded through that repository.
+
+When publishing a release, set `assets/canvas/package.json` and its lockfile to the release version, then publish a GitHub release with a matching tag such as `v0.2.0` and add release notes.
 
 ## Use
 

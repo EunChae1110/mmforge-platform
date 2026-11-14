@@ -3,6 +3,7 @@ import { dirname, isAbsolute, join, relative, sep } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import react from '@vitejs/plugin-react'
 import { defineConfig, type Plugin } from 'vite'
+import { canvasUpdate } from './canvas-update'
 import { designActivityEvent, designSavedEvent, type DesignActivity, type DesignSaved } from './src/designActivity'
 
 function designEdits(): Plugin {
@@ -133,7 +134,7 @@ function designEdits(): Plugin {
 }
 
 export default defineConfig({
-  plugins: [react(), designEdits()],
+  plugins: [react(), designEdits(), canvasUpdate(fileURLToPath(new URL('.', import.meta.url)))],
   publicDir: fileURLToPath(new URL('./public', import.meta.url)),
   define: {
     __MMFORGE_WORKSPACE__: JSON.stringify(process.cwd()),
