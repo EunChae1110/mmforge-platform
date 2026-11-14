@@ -1,5 +1,5 @@
-import { Check } from 'lucide-react'
-import { useEffect, useState } from 'react'
+import { Check, LoaderCircle } from 'lucide-react'
+import { useEffect, useLayoutEffect, useState } from 'react'
 import { designActivityEvent, type DesignActivity } from './designActivity'
 
 const phaseDetails = {
@@ -33,20 +33,34 @@ export function useDesignActivity() {
 
 export function DesignActivityNotice({ live, active }: { live: DesignActivity | null; active: boolean }) {
   const previewReady = live?.previewReady === true || live?.source === 'filesystem'
+  const [lastNotice, setLastNotice] = useState<{ activity: DesignActivity; active: boolean } | null>(null)
+  const notice = live ? { activity: live, active } : lastNotice
+
+  useLayoutEffect(() => {
+    if (live) setLastNotice({ activity: live, active })
+  }, [active, live])
 
   return (
-    <div className="canvas-activity-announcement" data-active={active} role="status" aria-atomic="true">
-      {live && (
-        <div className="canvas-activity" data-active={active} data-preview-ready={previewReady}>
-          <div className="canvas-activity-aura" aria-hidden="true">
-            {!active && <Check />}
-          </div>
-          <div className="canvas-activity-text">
-            <strong>{phaseDetails[live.phase]}</strong>
-            <span title={live.path}>{live.path}</span>
-          </div>
+    <>
+      {active && (
+        <div className="canvas-activity-backdrop" data-preview-ready={previewReady} aria-hidden="true">
+          <div className="canvas-activity-aura" />
         </div>
       )}
-    </div>
+      <div className="canvas-activity-announcement" role="status" aria-atomic="true">
+        {notice && (
+          <div className="canvas-activity" data-visible={Boolean(live)} data-active={notice.active} aria-hidden={!live}>
+            <span className="canvas-activity-icon" aria-hidden="true">
+              <LoaderCircle className="canvas-activity-spinner" />
+              <Check className="canvas-activity-check" />
+            </span>
+            <div className="canvas-activity-text">
+              <strong key={notice.activity.phase}>{phaseDetails[notice.activity.phase]}</strong>
+              <span>{notice.activity.path}</span>
+            </div>
+          </div>
+        )}
+      </div>
+    </>
   )
 }

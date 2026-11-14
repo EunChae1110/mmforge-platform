@@ -28,20 +28,20 @@ type Drag = {
   viewY: number
 }
 
-function fitPreview(viewport: HTMLElement, frame: HTMLElement, controls: DOMRect): View {
+function fitPreview(viewport: HTMLElement, frame: HTMLElement, controls: DOMRect, toolbar: HTMLElement): View {
   const width = viewport.clientWidth
-  const height = viewport.clientHeight
   const gutter = 16
   const frameWidth = frame.offsetWidth
   const frameHeight = frame.offsetHeight
   const viewportBounds = viewport.getBoundingClientRect()
+  const height = Math.max(0, toolbar.getBoundingClientRect().top - viewportBounds.top)
   const controlsRight = controls.right - viewportBounds.left
   const controlsBottom = controls.bottom - viewportBounds.top
 
   function fit(left: number, top: number): View {
     return {
       x: left / 2,
-      y: top / 2,
+      y: (height - viewport.clientHeight + top) / 2,
       zoom: Math.min(1, Math.max(1, width - left - 2 * gutter) / frameWidth, Math.max(1, height - top - 2 * gutter) / frameHeight),
     }
   }
@@ -66,6 +66,7 @@ export function CanvasStage({ designPath, previewWidth, controlsRef, sidebarOpen
   children: ReactNode
 }) {
   const viewportRef = useRef<HTMLDivElement>(null)
+  const toolbarRef = useRef<HTMLDivElement>(null)
   const frameRef = useRef<HTMLElement>(null)
   const previewRef = useRef<HTMLDivElement>(null)
   const hoverBubbleRef = useRef<HTMLDivElement>(null)
@@ -179,7 +180,19 @@ export function CanvasStage({ designPath, previewWidth, controlsRef, sidebarOpen
   }
 
   useLayoutEffect(() => {
+    if (!previewLocked) return
+    setHovered(null)
+    const viewport = viewportRef.current
+    const drag = dragRef.current
+    if (!drag) return
+    dragRef.current = null
+    if (viewport?.hasPointerCapture(drag.pointerId)) viewport.releasePointerCapture(drag.pointerId)
+    setDragging(false)
+  }, [previewLocked])
+
+  useLayoutEffect(() => {
     const viewport = viewportRef.current!
+    const toolbar = toolbarRef.current!
     const frame = frameRef.current
     const preview = previewRef.current
     if (!frame || !preview) return
@@ -188,13 +201,14 @@ export function CanvasStage({ designPath, previewWidth, controlsRef, sidebarOpen
 
     const measure = () => {
       const bounds = (sidebarOpen ? controls : title).getBoundingClientRect()
-      const nextFit = fitPreview(viewport, frame, bounds)
+      const nextFit = fitPreview(viewport, frame, bounds, toolbar)
       setFitView((current) => current.x === nextFit.x && current.y === nextFit.y && current.zoom === nextFit.zoom ? current : nextFit)
       setDimensions(preview.offsetWidth + ' × ' + preview.offsetHeight + ' px')
     }
 
     const observer = new ResizeObserver(measure)
     observer.observe(viewport)
+    observer.observe(toolbar)
     observer.observe(frame)
     observer.observe(preview)
     observer.observe(controls)
@@ -281,12 +295,13 @@ export function CanvasStage({ designPath, previewWidth, controlsRef, sidebarOpen
       className="canvas-stage"
       aria-label="Design canvas"
       onKeyDown={(event) => {
-        if (event.key === 'Escape' && selecting) chooseTool('pointer')
+        if (!previewLocked && event.key === 'Escape' && selecting) chooseTool('pointer')
       }}
     >
       <div
         ref={viewportRef}
         className="canvas-viewport"
+        inert={previewLocked}
         data-pan-tool={tool === 'pan'}
         data-select-tool={selecting}
         data-dragging={dragging}
@@ -318,7 +333,7 @@ export function CanvasStage({ designPath, previewWidth, controlsRef, sidebarOpen
               transform: 'translate(calc(-50% + ' + view.x + 'px), calc(-50% + ' + view.y + 'px)) scale(' + zoom + ')',
             }}
           >
-            <div className="canvas-preview" ref={previewRef} inert={previewLocked}>{children}</div>
+            <div className="canvas-preview" ref={previewRef}>{children}</div>
             <figcaption className="canvas-measure" aria-label="Menu dimensions">{dimensions}</figcaption>
           </figure>
         ) : children}
@@ -330,7 +345,7 @@ export function CanvasStage({ designPath, previewWidth, controlsRef, sidebarOpen
         )}
       </div>
 
-      {selection && (
+      {selection && !previewLocked && (
         <div className="canvas-selection" role="group" aria-label="Selected element">
           <div className="canvas-selection-details">
             <strong title={selection.label}>{selection.label}</strong>
@@ -371,7 +386,7 @@ export function CanvasStage({ designPath, previewWidth, controlsRef, sidebarOpen
         </div>
       )}
 
-      <div className="canvas-toolkit" role="group" aria-label="Canvas tools">
+      <div ref={toolbarRef} className="canvas-toolkit" role="group" aria-label="Canvas tools" inert={previewLocked}>
         <button
           type="button"
           className="canvas-icon-button"

@@ -1,5 +1,5 @@
 import * as DropdownMenu from '@radix-ui/react-dropdown-menu'
-import { Copy, Ellipsis, ExternalLink, LayoutTemplate, PanelLeftClose, PanelLeftOpen } from 'lucide-react'
+import { Copy, Ellipsis, ExternalLink, Github, LayoutTemplate, PanelLeftClose, PanelLeftOpen } from 'lucide-react'
 import { Component, useEffect, useRef, useState, type ComponentType, type ReactNode } from 'react'
 import designEdits from 'virtual:design-edits'
 import { CanvasStage } from './CanvasStage'
@@ -121,6 +121,7 @@ export function Canvas() {
             aria-expanded={sidebarOpen}
             onClick={() => setSidebarOpen((open) => !open)}
           >
+            <img src={import.meta.env.BASE_URL + 'mmforge-icon.png'} width={28} height={28} alt="" draggable={false} />
             <SidebarIcon aria-hidden="true" />
           </button>
           <h1>MMForge platform</h1>
@@ -187,6 +188,16 @@ export function Canvas() {
           </nav>
         </div>
       </div>
+      <a
+        className="canvas-icon-button canvas-corner-button canvas-repo-link"
+        href="https://github.com/EunChae1110/mmforge-platform"
+        target="_blank"
+        rel="noopener noreferrer"
+        aria-label="MMForge on GitHub (opens in a new tab)"
+        title="MMForge on GitHub"
+      >
+        <Github aria-hidden="true" />
+      </a>
 
       <CanvasStage
         key={design?.filename}
