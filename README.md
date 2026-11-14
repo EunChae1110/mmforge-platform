@@ -1,6 +1,7 @@
 <div align="center">
   <img src="assets/canvas/public/mmforge-icon.png" alt="MMForge logo" width="80" height="80">
   <h1>mmforge-platform</h1>
+  <p>Design and prototype game mod menu UIs.</p>
   <a href="https://github.com/EunChae1110/mmforge-platform">
     <img src="https://img.shields.io/github/stars/EunChae1110/mmforge-platform?style=social" alt="GitHub stars">
   </a>
@@ -9,11 +10,11 @@
   </a>
 </div>
 
+mmforge-platform is a AI design skill for game mod menus, also called cheat. Use it with Cursor, Claude Code, Codex or more to build a menu from a brief, recreate one from a screenshot, or edit a specific element in the canvas. The preview runs locally with interactive tabs, toggles, sliders, dropdowns, and keybind controls backed by demo state.
+
 ![SpectraX menu open in the MMForge canvas](assets/readme/spectrax.png)
 
 ![Neverlose menu open in the MMForge canvas](assets/readme/neverlose.png)
-
-mmforge-platform is a skill for Cursor, Claude Code, and Codex that builds a mouse-operated menu you can click through in a local canvas. Give it a brief, a screenshot, or a copied element, and it chooses the navigation and controls, matches a reference when you have one, and edits a single control when you point at it. It works from the bundled Vite canvas: switches, sliders, and custom menus stay as local demo state. Nothing here attaches to a game, a process, or a remote service.
 
 ## Concept
 
@@ -65,8 +66,8 @@ When publishing a release, set `assets/canvas/package.json` and its lockfile to 
 Ask in your own words and the agent picks the skill up by itself.
 
 ```
-Design a settings menu with a left category rail and grouped rows for display, input, and audio.
-Recreate this menu from the screenshot. Match the density and the selected tab.
+Design a mod menu with a left category rail, grouped options, and a compact keybind row.
+Recreate this cheat menu UI from the screenshot. Match the density and the selected tab.
 Change the slider row so the value sits above the track.
 ```
 
