@@ -268,9 +268,24 @@ body {
   position: relative;
   display: grid;
   grid-template-rows: minmax(0, 1fr);
+  overflow: clip;
   min-width: 0;
   min-height: 0;
   background: var(--background);
+}
+
+.canvas-stage[data-expanded="true"] {
+  position: fixed;
+  z-index: 3;
+  inset: 0;
+}
+
+.canvas:has(.canvas-stage[data-expanded="true"]) .canvas-activity-backdrop {
+  z-index: 4;
+}
+
+.canvas:has(.canvas-stage[data-expanded="true"]) .canvas-activity-announcement {
+  z-index: 5;
 }
 
 .canvas-viewport {
@@ -280,6 +295,39 @@ body {
   background-image: radial-gradient(circle, #ffffff24 0.7px, transparent 0.9px);
   background-size: 20px 20px;
   background-position: center;
+}
+
+.canvas-game-scene {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(ellipse at 50% 38%, #252935, #101217 72%);
+  opacity: 0;
+  pointer-events: none;
+}
+
+.canvas-viewport[data-game-mode="true"] .canvas-game-scene {
+  opacity: 1;
+}
+
+.canvas-game-background {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  pointer-events: none;
+}
+
+.canvas-game-error {
+  position: absolute;
+  inset: auto 16px 62px;
+  width: fit-content;
+  margin: 0 auto;
+  padding: 7px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--card);
+  color: var(--foreground);
 }
 
 .canvas-viewport[data-pan-tool="true"] {
@@ -375,7 +423,7 @@ body {
   user-select: none;
 }
 
-.canvas-viewport:is([data-pan-tool="true"], [data-dragging="true"]) .canvas-frame {
+.canvas-viewport[data-game-mode="false"]:is([data-pan-tool="true"], [data-dragging="true"]) .canvas-frame {
   pointer-events: none;
 }
 
@@ -454,6 +502,103 @@ body {
 
 .canvas-toolkit[inert] {
   opacity: 0.5;
+}
+
+.canvas-toolkit[data-idle="true"]:not(:hover, :has(:focus-visible)) {
+  opacity: 0;
+  transform: translateY(calc(100% + var(--canvas-inset)));
+  pointer-events: none;
+}
+
+.canvas-mode-tools {
+  display: flex;
+  align-items: center;
+  flex: none;
+  gap: 2px;
+}
+
+.canvas-mode-tools + .canvas-tool-divider {
+  flex: none;
+}
+
+.canvas button.canvas-mode-switch {
+  --switch-width: 44px;
+  --switch-thumb-size: 18px;
+  --switch-thumb-inset: 4px;
+  position: relative;
+  display: inline-grid;
+  flex: none;
+  width: var(--switch-width);
+  height: 32px;
+  margin-inline-start: auto;
+  place-items: center start;
+  padding: 0 var(--switch-thumb-inset);
+  border: 0;
+  border-radius: calc(var(--radius) - 2px);
+  background: transparent;
+  color: var(--muted-foreground);
+}
+
+.canvas-mode-switch::before {
+  position: absolute;
+  inset: 4px 1px;
+  border: 1px solid var(--border);
+  border-radius: inherit;
+  background: var(--background);
+  content: "";
+}
+
+.canvas-mode-switch:is(:hover, [aria-checked="true"])::before {
+  background: var(--accent);
+}
+
+.canvas button.canvas-mode-switch:is(:hover, [aria-checked="true"]) {
+  color: var(--accent-foreground);
+}
+
+.canvas-mode-thumb {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: var(--switch-thumb-size);
+  height: var(--switch-thumb-size);
+  border-radius: calc(var(--radius) - 4px);
+  background: #39393e;
+  transform: translateX(0);
+}
+
+.canvas-mode-switch[aria-checked="true"] .canvas-mode-thumb {
+  transform: translateX(calc(var(--switch-width) - var(--switch-thumb-size) - 2 * var(--switch-thumb-inset)));
+}
+
+.canvas-mode-thumb svg {
+  grid-area: 1 / 1;
+  width: 13px;
+  height: 13px;
+}
+
+.canvas-mode-switch[aria-checked="true"] .canvas-mode-agent,
+.canvas-mode-switch[aria-checked="false"] .canvas-mode-game {
+  opacity: 0;
+  transform: translateY(4px) scale(0.85);
+}
+
+@media (width < 350px) {
+  .canvas .canvas-edit-tools ~ button.canvas-mode-switch {
+    --switch-width: 40px;
+  }
+
+  .canvas .canvas-edit-tools > button.canvas-icon-button {
+    width: 27px;
+  }
+
+  .canvas-edit-tools .canvas-zoom {
+    min-width: 33px;
+  }
+
+  .canvas-toolkit .canvas-tool-divider {
+    margin-inline: 2px;
+  }
 }
 
 .canvas-selection {
@@ -801,6 +946,45 @@ body {
 }
 
 @media (prefers-reduced-motion: no-preference) {
+  .canvas-toolkit {
+    transition: transform 240ms cubic-bezier(0.22, 1, 0.36, 1), opacity 180ms ease;
+  }
+
+  .canvas-mode-switch svg {
+    transition: transform 220ms cubic-bezier(0.22, 1, 0.36, 1), opacity 160ms ease;
+  }
+
+  .canvas button.canvas-mode-switch {
+    transition: color 180ms ease;
+  }
+
+  .canvas-mode-switch::before {
+    transition: background-color 180ms ease;
+  }
+
+  .canvas-mode-thumb {
+    transition: transform 240ms cubic-bezier(0.22, 1, 0.36, 1);
+  }
+
+  .canvas-game-scene {
+    transition: opacity 220ms ease;
+  }
+
+  .canvas-stage[data-switching-mode="true"] .canvas-frame {
+    transition: transform 280ms cubic-bezier(0.22, 1, 0.36, 1);
+  }
+
+  .canvas-stage[data-switching-mode="true"] .canvas-toolkit {
+    overflow: clip;
+  }
+
+  .canvas-stage[data-switching-mode="true"] .canvas-mode-tools {
+    flex-shrink: 1;
+    min-width: 0;
+    overflow: clip;
+    animation: canvas-mode-tools-enter 230ms ease-out both;
+  }
+
   .canvas-controls {
     transition: gap 220ms ease;
   }
@@ -861,6 +1045,11 @@ body {
 @keyframes activity-title-enter {
   from { opacity: 0.4; }
   to { opacity: 1; }
+}
+
+@keyframes canvas-mode-tools-enter {
+  from { opacity: 0; transform: translateX(-4px); }
+  to { opacity: 1; transform: translateX(0); }
 }
 
 @keyframes activity-spin {

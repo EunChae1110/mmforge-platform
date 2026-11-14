@@ -51,6 +51,8 @@ class PreviewBoundary extends Component<{ children: ReactNode }, { failed: boole
 export function Canvas() {
   const [filename, setFilename] = useState(() => new URLSearchParams(location.search).get('design'))
   const [sidebarOpen, setSidebarOpen] = useState(true)
+  const [gameMode, setGameMode] = useState(false)
+  const [gameScreenshot, setGameScreenshot] = useState<File | null>(null)
   const [copyStatus, setCopyStatus] = useState<{ text: string } | null>(null)
   const controlsRef = useRef<HTMLDivElement>(null)
   const activity = useDesignActivity()
@@ -110,7 +112,7 @@ export function Canvas() {
   }
 
   return (
-    <div className="canvas">
+    <div className="canvas" data-game-mode={gameMode}>
       <div className="canvas-controls" data-sidebar-open={sidebarOpen} ref={controlsRef}>
         <div className="canvas-title">
           <button
@@ -220,6 +222,10 @@ export function Canvas() {
         controlsRef={controlsRef}
         sidebarOpen={sidebarOpen}
         previewLocked={activityActive}
+        gameMode={gameMode}
+        onGameModeChange={setGameMode}
+        gameScreenshot={gameScreenshot}
+        onGameScreenshotChange={setGameScreenshot}
       >
         {Preview ? (
           <PreviewBoundary>

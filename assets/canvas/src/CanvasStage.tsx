@@ -1,5 +1,5 @@
 import * as DropdownMenu from '@radix-ui/react-dropdown-menu'
-import { Copy, ExternalLink, Hand, Maximize, MessageSquarePlus, Minus, MousePointer2, Plus, Scan, X } from 'lucide-react'
+import { Bot, Copy, ExternalLink, Gamepad2, Hand, ImagePlus, Maximize, MessageSquarePlus, Minimize, Minus, MousePointer2, Plus, Scan, X } from 'lucide-react'
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type PointerEvent, type ReactNode, type RefObject } from 'react'
 import { describeElement, draftUrl, elementContext, previewElement, requestElementAnnotation, supportsElementAnnotations } from './elementContext'
 
@@ -27,6 +27,22 @@ type Drag = {
   viewX: number
   viewY: number
 }
+const interactiveElement = 'button, a[href], input, select, textarea, label, summary, [contenteditable], [tabindex], [role~="button"], [role~="slider"], [role~="switch"], [role~="checkbox"], [role~="tab"], [role~="radio"], [role~="option"], [role~="combobox"], [role~="listbox"], [role~="menu"], [role~="scrollbar"]'
+const gameTopClearance = 8
+const gameToolbarClearance = 20
+const modeTransitionDuration = 280
+const modeTransitionEasing = 'cubic-bezier(0.22, 1, 0.36, 1)'
+const toolbarIdleDelay = 2500
+
+function keepMenuInView(viewport: HTMLElement, frame: HTMLElement, toolbar: HTMLElement, view: View): View {
+  const { width, height } = viewport.getBoundingClientRect()
+  const bottom = toolbar.offsetTop - viewport.offsetTop
+  const maxX = Math.max(0, (width - frame.offsetWidth * view.zoom) / 2 - 8)
+  const halfHeight = frame.offsetHeight * view.zoom / 2
+  const minY = halfHeight + gameTopClearance - height / 2
+  const maxY = Math.max(minY, bottom - 8 - halfHeight - height / 2)
+  return { ...view, x: Math.max(-maxX, Math.min(maxX, view.x)), y: Math.max(minY, Math.min(maxY, view.y)) }
+}
 
 function fitPreview(viewport: HTMLElement, frame: HTMLElement, controls: DOMRect, toolbar: HTMLElement): View {
   const width = viewport.clientWidth
@@ -34,7 +50,7 @@ function fitPreview(viewport: HTMLElement, frame: HTMLElement, controls: DOMRect
   const frameWidth = frame.offsetWidth
   const frameHeight = frame.offsetHeight
   const viewportBounds = viewport.getBoundingClientRect()
-  const height = Math.max(0, toolbar.getBoundingClientRect().top - viewportBounds.top)
+  const height = Math.max(0, toolbar.offsetTop - viewport.offsetTop)
   const controlsRight = controls.right - viewportBounds.left
   const controlsBottom = controls.bottom - viewportBounds.top
 
@@ -57,21 +73,39 @@ function fitPreview(viewport: HTMLElement, frame: HTMLElement, controls: DOMRect
   return beside.zoom >= below.zoom ? beside : below
 }
 
-export function CanvasStage({ designPath, previewWidth, controlsRef, sidebarOpen, previewLocked, children }: {
+export function CanvasStage({ designPath, previewWidth, controlsRef, sidebarOpen, previewLocked, gameMode, onGameModeChange, gameScreenshot, onGameScreenshotChange, children }: {
   designPath?: string
   previewWidth: number
   controlsRef: RefObject<HTMLDivElement | null>
   sidebarOpen: boolean
   previewLocked: boolean
+  gameMode: boolean
+  onGameModeChange: (enabled: boolean) => void
+  gameScreenshot: File | null
+  onGameScreenshotChange: (image: File | null) => void
   children: ReactNode
 }) {
+  const stageRef = useRef<HTMLElement>(null)
   const viewportRef = useRef<HTMLDivElement>(null)
+  const screenshotInputRef = useRef<HTMLInputElement>(null)
   const toolbarRef = useRef<HTMLDivElement>(null)
   const frameRef = useRef<HTMLElement>(null)
   const previewRef = useRef<HTMLDivElement>(null)
   const hoverBubbleRef = useRef<HTMLDivElement>(null)
   const dragRef = useRef<Drag | null>(null)
+  const modeTransitionTimer = useRef<number | undefined>(undefined)
+  const toolbarAnimation = useRef<Animation | null>(null)
+  const previousToolbarWidth = useRef<number | null>(null)
+  const toolbarIdleTimer = useRef<number | undefined>(undefined)
+  const [toolbarIdle, setToolbarIdle] = useState(false)
+  const [switchingMode, setSwitchingMode] = useState(false)
   const [manualView, setManualView] = useState<View | null>(null)
+  const [gameFit, setGameFit] = useState<View>(centeredView)
+  const [gamePosition, setGamePosition] = useState<{ x: number; y: number } | null>(null)
+  const [screenshotUrl, setScreenshotUrl] = useState('')
+  const [fullscreen, setFullscreen] = useState(false)
+  const [expanded, setExpanded] = useState(false)
+  const [gameError, setGameError] = useState('')
   const [tool, setTool] = useState<Tool>('pointer')
   const [hovered, setHovered] = useState<Element | null>(null)
   const [selection, setSelection] = useState<Selection | null>(null)
@@ -79,9 +113,63 @@ export function CanvasStage({ designPath, previewWidth, controlsRef, sidebarOpen
   const [fitView, setFitView] = useState<View>(centeredView)
   const [dimensions, setDimensions] = useState('')
   const [previewVisible, setPreviewVisible] = useState(false)
-  const view = manualView ?? fitView
-  const selecting = tool === 'select' && Boolean(dimensions)
+  const view = gameMode ? { ...gameFit, ...gamePosition } : manualView ?? fitView
+  const selecting = !gameMode && tool === 'select' && Boolean(dimensions)
   const hoverInfo = selecting && !previewLocked && hovered ? describeElement(hovered) : null
+
+  const scheduleToolbarHide = useCallback(() => {
+    window.clearTimeout(toolbarIdleTimer.current)
+    toolbarIdleTimer.current = window.setTimeout(() => setToolbarIdle(true), toolbarIdleDelay)
+  }, [])
+
+  useEffect(() => {
+    setToolbarIdle(false)
+    if (!gameMode) return
+    scheduleToolbarHide()
+    return () => window.clearTimeout(toolbarIdleTimer.current)
+  }, [gameMode, scheduleToolbarHide])
+
+  function revealToolbarNearPointer(event: PointerEvent<HTMLElement>) {
+    if (!gameMode) return
+    const toolbar = toolbarRef.current
+    const stage = event.currentTarget.getBoundingClientRect()
+    if (!toolbar || event.clientY < stage.top + toolbar.offsetTop - 12 ||
+      Math.abs(event.clientX - (stage.left + stage.width / 2)) > Math.max(110, toolbar.offsetWidth / 2 + 12)) return
+
+    setToolbarIdle(false)
+    scheduleToolbarHide()
+  }
+
+  useEffect(() => {
+    if (!gameScreenshot) {
+      setScreenshotUrl('')
+      return
+    }
+    const url = URL.createObjectURL(gameScreenshot)
+    setScreenshotUrl(url)
+    return () => URL.revokeObjectURL(url)
+  }, [gameScreenshot])
+
+  useEffect(() => {
+    const update = () => setFullscreen(document.fullscreenElement === stageRef.current)
+    document.addEventListener('fullscreenchange', update)
+    return () => document.removeEventListener('fullscreenchange', update)
+  }, [])
+
+  async function toggleFullscreen() {
+    setGameError('')
+    if (expanded) {
+      setExpanded(false)
+      return
+    }
+    try {
+      if (document.fullscreenElement === stageRef.current) await document.exitFullscreen()
+      else if (document.fullscreenEnabled && stageRef.current?.requestFullscreen) await stageRef.current.requestFullscreen()
+      else setExpanded(true)
+    } catch {
+      if (!document.fullscreenElement) setExpanded(true)
+    }
+  }
 
   useEffect(() => {
     if (!selecting || previewLocked || !hovered) return
@@ -135,7 +223,7 @@ export function CanvasStage({ designPath, previewWidth, controlsRef, sidebarOpen
     }
   }, [hovered, previewLocked, selecting, view])
 
-  const selectedElement = selection?.element
+  const selectedElement = gameMode ? null : selection?.element
   useEffect(() => {
     if (!selectedElement) return
     selectedElement.setAttribute('data-mmforge-selected', '')
@@ -180,9 +268,43 @@ export function CanvasStage({ designPath, previewWidth, controlsRef, sidebarOpen
     setTool(next)
   }
 
+  function changeMode(next: boolean) {
+    if (next === gameMode) return
+    if (!window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      previousToolbarWidth.current = toolbarRef.current?.getBoundingClientRect().width ?? null
+      window.clearTimeout(modeTransitionTimer.current)
+      setSwitchingMode(true)
+      modeTransitionTimer.current = window.setTimeout(() => setSwitchingMode(false), modeTransitionDuration + 40)
+    }
+    setHovered(null)
+    setGameError('')
+    setExpanded(false)
+    if (!next && fullscreen) void document.exitFullscreen().catch(() => {})
+    onGameModeChange(next)
+  }
+
+  useLayoutEffect(() => {
+    const toolbar = toolbarRef.current
+    const width = previousToolbarWidth.current
+    if (!toolbar || width === null) return
+
+    previousToolbarWidth.current = null
+    toolbarAnimation.current?.cancel()
+    toolbarAnimation.current = toolbar.animate(
+      [{ width: width + 'px' }, { width: toolbar.getBoundingClientRect().width + 'px' }],
+      { duration: modeTransitionDuration, easing: modeTransitionEasing },
+    )
+  }, [gameMode])
+
+  useEffect(() => () => {
+    window.clearTimeout(modeTransitionTimer.current)
+    toolbarAnimation.current?.cancel()
+  }, [])
+
   useLayoutEffect(() => {
     if (!previewLocked) return
     setHovered(null)
+    if (document.fullscreenElement === stageRef.current) void document.exitFullscreen().catch(() => {})
     const viewport = viewportRef.current
     const drag = dragRef.current
     if (!drag) return
@@ -206,6 +328,16 @@ export function CanvasStage({ designPath, previewWidth, controlsRef, sidebarOpen
       setDimensions(hasPreview ? width + ' × ' + height + ' px' : '')
       if (!hasPreview) return
 
+      if (gameMode) {
+        const viewportHeight = viewport.clientHeight
+        const availableHeight = Math.max(1, toolbar.offsetTop - viewport.offsetTop - gameTopClearance - gameToolbarClearance)
+        const zoom = Math.min(1, Math.max(1, viewport.clientWidth - 16) / width, availableHeight / frame.offsetHeight)
+        const fit = keepMenuInView(viewport, frame, toolbar, { x: 0, y: gameTopClearance + (availableHeight - viewportHeight) / 2, zoom })
+        setGameFit(fit)
+        setGamePosition(current => current && keepMenuInView(viewport, frame, toolbar, { ...fit, ...current }))
+        return
+      }
+
       const bounds = (sidebarOpen ? controls : title).getBoundingClientRect()
       const nextFit = fitPreview(viewport, frame, bounds, toolbar)
       setFitView((current) => current.x === nextFit.x && current.y === nextFit.y && current.zoom === nextFit.zoom ? current : nextFit)
@@ -227,7 +359,7 @@ export function CanvasStage({ designPath, previewWidth, controlsRef, sidebarOpen
       content.disconnect()
       visibility.disconnect()
     }
-  }, [controlsRef, designPath, sidebarOpen])
+  }, [controlsRef, designPath, gameMode, sidebarOpen])
 
   const zoomBy = useCallback((factor: number, x = fitView.x, y = fitView.y) => {
     setManualView((manual) => {
@@ -258,9 +390,10 @@ export function CanvasStage({ designPath, previewWidth, controlsRef, sidebarOpen
       zoomBy(factor, event.clientX - rect.left - rect.width / 2, event.clientY - rect.top - rect.height / 2)
     }
 
+    if (gameMode) return
     viewport.addEventListener('wheel', onWheel, { passive: false })
     return () => viewport.removeEventListener('wheel', onWheel)
-  }, [zoomBy])
+  }, [gameMode, zoomBy])
 
   function startPan(event: PointerEvent<HTMLDivElement>) {
     if (selecting && event.button === 0) {
@@ -269,10 +402,14 @@ export function CanvasStage({ designPath, previewWidth, controlsRef, sidebarOpen
       return
     }
     const onBackground = event.target === event.currentTarget
-    const canPan = event.button === 1 || (event.button === 0 && (tool === 'pan' || onBackground))
+    const target = event.target instanceof Element ? event.target : null
+    const canPan = gameMode
+      ? event.button === 0 && Boolean(dimensions && target && frameRef.current?.contains(target) && !target.closest(interactiveElement))
+      : event.button === 1 || (event.button === 0 && (tool === 'pan' || onBackground))
     if (!canPan || dragRef.current) return
 
     event.preventDefault()
+    if (gameMode) event.stopPropagation()
     event.currentTarget.setPointerCapture(event.pointerId)
     dragRef.current = {
       pointerId: event.pointerId,
@@ -292,6 +429,10 @@ export function CanvasStage({ designPath, previewWidth, controlsRef, sidebarOpen
 
     const x = drag.viewX + event.clientX - drag.startX
     const y = drag.viewY + event.clientY - drag.startY
+    if (gameMode) {
+      setGamePosition(keepMenuInView(viewportRef.current!, frameRef.current!, toolbarRef.current!, { x, y, zoom: gameFit.zoom }))
+      return
+    }
     setManualView((current) => ({ x, y, zoom: current?.zoom ?? fitView.zoom }))
   }
 
@@ -305,17 +446,24 @@ export function CanvasStage({ designPath, previewWidth, controlsRef, sidebarOpen
 
   return (
     <main
+      ref={stageRef}
       className="canvas-stage"
-      aria-label="Design canvas"
+      data-expanded={expanded}
+      data-switching-mode={switchingMode}
+      aria-label={gameMode ? 'Game preview' : 'Design canvas'}
+      onPointerMoveCapture={revealToolbarNearPointer}
+      onPointerDownCapture={revealToolbarNearPointer}
       onKeyDown={(event) => {
+        if (event.key === 'Escape' && expanded) setExpanded(false)
         if (!previewLocked && event.key === 'Escape' && selecting) chooseTool('pointer')
       }}
     >
       <div
         ref={viewportRef}
         className="canvas-viewport"
-        inert={previewLocked}
-        data-pan-tool={tool === 'pan'}
+        inert={previewLocked || switchingMode}
+        data-game-mode={gameMode}
+        data-pan-tool={!gameMode && tool === 'pan'}
         data-select-tool={selecting}
         data-dragging={dragging}
         onPointerDownCapture={startPan}
@@ -344,6 +492,14 @@ export function CanvasStage({ designPath, previewWidth, controlsRef, sidebarOpen
           selectElement(event.target)
         }}
       >
+        <div className="canvas-game-scene" aria-hidden="true">
+          {screenshotUrl && (
+            <img className="canvas-game-background" src={screenshotUrl} alt="" draggable={false} onError={() => {
+              onGameScreenshotChange(null)
+              setGameError('This image could not be opened.')
+            }} />
+          )}
+        </div>
         {designPath ? (
           <figure
             ref={frameRef}
@@ -354,7 +510,7 @@ export function CanvasStage({ designPath, previewWidth, controlsRef, sidebarOpen
             }}
           >
             <div className="canvas-preview" ref={previewRef}>{children}</div>
-            {dimensions && <figcaption className="canvas-measure" aria-label="Menu dimensions" hidden={!previewVisible}>{dimensions}</figcaption>}
+            {!gameMode && dimensions && <figcaption className="canvas-measure" aria-label="Menu dimensions" hidden={!previewVisible}>{dimensions}</figcaption>}
           </figure>
         ) : children}
         {hoverInfo && (
@@ -365,7 +521,7 @@ export function CanvasStage({ designPath, previewWidth, controlsRef, sidebarOpen
         )}
       </div>
 
-      {selection && dimensions && !previewLocked && (
+      {!gameMode && selection && dimensions && !previewLocked && (
         <div className="canvas-selection" role="group" aria-label="Selected element">
           <div className="canvas-selection-details">
             <strong title={selection.label}>{selection.label}</strong>
@@ -406,72 +562,117 @@ export function CanvasStage({ designPath, previewWidth, controlsRef, sidebarOpen
         </div>
       )}
 
-      <div ref={toolbarRef} className="canvas-toolkit" role="group" aria-label="Canvas tools" inert={previewLocked}>
-        <button
-          type="button"
-          className="canvas-icon-button"
-          aria-label="Pointer tool"
-          aria-pressed={tool === 'pointer'}
-          title="Pointer tool"
-          onClick={() => chooseTool('pointer')}
-        >
-          <MousePointer2 aria-hidden="true" />
-        </button>
-        <button
-          type="button"
-          className="canvas-icon-button"
-          aria-label="Hand tool"
-          aria-pressed={tool === 'pan'}
-          title="Hand tool"
-          onClick={() => chooseTool('pan')}
-        >
-          <Hand aria-hidden="true" />
-        </button>
-        <button
-          type="button"
-          className="canvas-icon-button"
-          aria-label="Select element"
-          aria-pressed={selecting}
-          title="Select element for AI feedback"
-          disabled={!dimensions}
-          onClick={() => chooseTool(selecting ? 'pointer' : 'select')}
-        >
-          <Scan aria-hidden="true" />
-        </button>
+      <div ref={toolbarRef} className="canvas-toolkit" data-idle={gameMode && toolbarIdle} role="group" aria-label="Canvas tools" inert={previewLocked}>
+        {gameMode ? (
+          <div className="canvas-mode-tools canvas-game-tools" inert={switchingMode}>
+            <input hidden type="file" accept="image/*" ref={screenshotInputRef} onChange={event => {
+              const image = event.currentTarget.files?.[0]
+              if (image) {
+                setGameError('')
+                onGameScreenshotChange(image)
+              }
+              event.currentTarget.value = ''
+            }} />
+            <button type="button" className="canvas-icon-button" aria-label="Load game screenshot" title="Load game screenshot" onClick={() => screenshotInputRef.current?.click()}>
+              <ImagePlus aria-hidden="true" />
+            </button>
+            {gameScreenshot && (
+              <button type="button" className="canvas-icon-button" aria-label="Clear game screenshot" title="Clear game screenshot" onClick={() => onGameScreenshotChange(null)}>
+                <X aria-hidden="true" />
+              </button>
+            )}
+            <button type="button" className="canvas-icon-button" aria-label="Center menu" title="Center menu" disabled={!dimensions} onClick={() => setGamePosition(null)}>
+              <Scan aria-hidden="true" />
+            </button>
+            <button type="button" className="canvas-icon-button" aria-label={fullscreen || expanded ? 'Exit fullscreen' : 'Fullscreen'} title={fullscreen || expanded ? 'Exit fullscreen' : 'Fullscreen'} onClick={() => void toggleFullscreen()}>
+              {fullscreen || expanded ? <Minimize aria-hidden="true" /> : <Maximize aria-hidden="true" />}
+            </button>
+          </div>
+        ) : (
+          <div className="canvas-mode-tools canvas-edit-tools" inert={switchingMode}>
+            <button
+              type="button"
+              className="canvas-icon-button"
+              aria-label="Pointer tool"
+              aria-pressed={tool === 'pointer'}
+              title="Pointer tool"
+              onClick={() => chooseTool('pointer')}
+            >
+              <MousePointer2 aria-hidden="true" />
+            </button>
+            <button
+              type="button"
+              className="canvas-icon-button"
+              aria-label="Hand tool"
+              aria-pressed={tool === 'pan'}
+              title="Hand tool"
+              onClick={() => chooseTool('pan')}
+            >
+              <Hand aria-hidden="true" />
+            </button>
+            <button
+              type="button"
+              className="canvas-icon-button"
+              aria-label="Select element"
+              aria-pressed={selecting}
+              title="Select element for AI feedback"
+              disabled={!dimensions}
+              onClick={() => chooseTool(selecting ? 'pointer' : 'select')}
+            >
+              <Scan aria-hidden="true" />
+            </button>
 
+            <span className="canvas-tool-divider" aria-hidden="true" />
+
+            <button
+              type="button"
+              className="canvas-icon-button"
+              aria-label="Zoom out"
+              title="Zoom out (Ctrl + scroll)"
+              disabled={zoom <= Math.min(minZoom, fitView.zoom)}
+              onClick={() => zoomBy(1 / zoomStep)}
+            >
+              <Minus aria-hidden="true" />
+            </button>
+            <span className="canvas-zoom" aria-label="Zoom level">{Math.round(zoom * 100)}%</span>
+            <button
+              type="button"
+              className="canvas-icon-button"
+              aria-label="Zoom in"
+              title="Zoom in (Ctrl + scroll)"
+              disabled={zoom >= maxZoom}
+              onClick={() => zoomBy(zoomStep)}
+            >
+              <Plus aria-hidden="true" />
+            </button>
+            <button
+              type="button"
+              className="canvas-icon-button"
+              aria-label="Fit to canvas"
+              title="Fit to canvas"
+              onClick={() => setManualView(null)}
+            >
+              <Maximize aria-hidden="true" />
+            </button>
+          </div>
+        )}
         <span className="canvas-tool-divider" aria-hidden="true" />
-
         <button
           type="button"
-          className="canvas-icon-button"
-          aria-label="Zoom out"
-          title="Zoom out (Ctrl + scroll)"
-          disabled={zoom <= Math.min(minZoom, fitView.zoom)}
-          onClick={() => zoomBy(1 / zoomStep)}
+          className="canvas-mode-switch"
+          role="switch"
+          aria-checked={gameMode}
+          aria-label="Game preview mode"
+          title={gameMode ? 'Switch to Agent Canvas' : 'Switch to Game Preview'}
+          onClick={() => changeMode(!gameMode)}
         >
-          <Minus aria-hidden="true" />
-        </button>
-        <span className="canvas-zoom" aria-label="Zoom level">{Math.round(zoom * 100)}%</span>
-        <button
-          type="button"
-          className="canvas-icon-button"
-          aria-label="Zoom in"
-          title="Zoom in (Ctrl + scroll)"
-          disabled={zoom >= maxZoom}
-          onClick={() => zoomBy(zoomStep)}
-        >
-          <Plus aria-hidden="true" />
-        </button>
-        <button
-          type="button"
-          className="canvas-icon-button"
-          aria-label="Fit to canvas"
-          title="Fit to canvas"
-          onClick={() => setManualView(null)}
-        >
-          <Maximize aria-hidden="true" />
+          <span className="canvas-mode-thumb" aria-hidden="true">
+            <Bot className="canvas-mode-agent" />
+            <Gamepad2 className="canvas-mode-game" />
+          </span>
         </button>
       </div>
+      {gameMode && gameError && <p className="canvas-game-error" role="status">{gameError}</p>}
     </main>
   )
 }
