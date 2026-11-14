@@ -1,4 +1,10 @@
-# mmforge-platform
+<div align="center">
+  <img src="assets/canvas/public/mmforge-icon.png" alt="MMForge logo" width="80" height="80">
+  <h1>mmforge-platform</h1>
+  <a href="https://github.com/EunChae1110/mmforge-platform">
+    <img src="https://img.shields.io/github/stars/EunChae1110/mmforge-platform?style=social" alt="GitHub stars">
+  </a>
+</div>
 
 ![SpectraX menu open in the MMForge canvas](assets/readme/spectrax.png)
 
