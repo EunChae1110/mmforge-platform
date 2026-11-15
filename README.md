@@ -1,16 +1,12 @@
-<div align="center">
-  <img src="assets/canvas/public/mmforge-icon.png" alt="MMForge logo" width="80" height="80">
-  <h1>mmforge-platform</h1>
-  <p>Design cheat menus and HUD widgets with AI.</p>
-  <a href="https://github.com/EunChae1110/mmforge-platform">
-    <img src="https://img.shields.io/github/stars/EunChae1110/mmforge-platform?style=social" alt="GitHub stars">
-  </a>
-  <a href="https://github.com/EunChae1110/mmforge-platform/releases/latest">
-    <img src="https://img.shields.io/github/v/release/EunChae1110/mmforge-platform?display_name=tag&amp;label=version" alt="Latest MMForge release version">
-  </a>
-</div>
+![MMForge logo](assets/canvas/public/mmforge-icon.png)
 
-Use MMForge with Cursor, Claude Code, or Codex. Build a cheat menu from a prompt, recreate one from a screenshot, or select a control in the local Canvas and ask AI to change it. Controls and HUD readings use demo data.
+# mmforge-platform
+
+Design cheat menus and HUD widgets with AI.
+
+![GitHub stars](https://img.shields.io/github/stars/EunChae1110/mmforge-platform?style=social) [](https://github.com/EunChae1110/mmforge-platform/releases/latest)![Latest MMForge release version](https://img.shields.io/github/v/release/EunChae1110/mmforge-platform?display_name=tag&label=version)[
+
+Use MMForge with Cursor, Claude Code, Codex, and general ai agent. Build a cheat menu from a prompt, recreate one from a screenshot, or select a control in the local Canvas and ask AI to change it. Controls and HUD readings use demo data.
 
 ![SpectraX menu open in the MMForge canvas](assets/readme/spectrax.png)
 
@@ -71,3 +67,7 @@ npm run design-activity -- done designs/widgets/neverlose/weapon.tsx
 Use the download icon in the Canvas to check for updates and read release notes. In-app updates use Git and npm. They keep your `designs/` folder and ask you to restart the Canvas. [GitHub Releases](https://github.com/EunChae1110/mmforge-platform/releases)
 
 If you are running a checkout of the skill repository, commit or stash local changes before updating. Update a standalone Canvas through its own repository. To publish a release, set the version in `assets/canvas/package.json` and its lockfile, then publish a GitHub release with the matching version tag.
+
+
+
+> This project will continue to be updated until I am satisfied.
