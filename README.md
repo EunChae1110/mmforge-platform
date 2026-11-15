@@ -4,7 +4,7 @@
 
 Design cheat menus and HUD widgets with AI.
 
-![GitHub stars](https://img.shields.io/github/stars/EunChae1110/mmforge-platform?style=social) [](https://github.com/EunChae1110/mmforge-platform/releases/latest)![Latest MMForge release version](https://img.shields.io/github/v/release/EunChae1110/mmforge-platform?display_name=tag&label=version)[
+![GitHub stars](https://img.shields.io/github/stars/EunChae1110/mmforge-platform?style=social) [](https://github.com/EunChae1110/mmforge-platform/releases/latest)![Latest MMForge release version](https://img.shields.io/github/v/release/EunChae1110/mmforge-platform?display_name=tag&label=version)
 
 Use MMForge with Cursor, Claude Code, Codex, and general ai agent. Build a cheat menu from a prompt, recreate one from a screenshot, or select a control in the local Canvas and ask AI to change it. Controls and HUD readings use demo data.
 
