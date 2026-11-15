@@ -1,0 +1,75 @@
+.canvas-delete-dialog {
+  width: min(392px, calc(100% - 2 * var(--canvas-inset)));
+  max-height: calc(100dvh - 2 * var(--canvas-inset));
+  padding: 18px;
+  border: 1px solid #ffffff22;
+  border-radius: 12px;
+  background: #202023;
+  color: var(--foreground);
+  box-shadow: 0 12px 36px #0008;
+}
+
+.canvas-delete-dialog::backdrop {
+  background: #0009;
+}
+
+.canvas-delete-icon {
+  display: grid;
+  width: 36px;
+  height: 36px;
+  margin-bottom: 12px;
+  place-items: center;
+  border: 1px solid #ef444440;
+  border-radius: 8px;
+  background: #ef444420;
+  color: #fda4aa;
+}
+
+.canvas-delete-dialog h2 {
+  margin: 0 0 6px;
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.canvas-delete-dialog p {
+  margin: 0;
+  color: #d4d4d8;
+  line-height: 1.55;
+  overflow-wrap: anywhere;
+}
+
+.canvas-delete-dialog strong {
+  color: var(--foreground);
+  font-weight: 600;
+}
+
+.canvas-delete-dialog p.canvas-delete-error {
+  margin-top: 10px;
+  color: #fda4aa;
+}
+
+.canvas-delete-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 18px;
+}
+
+.canvas .canvas-delete-actions button {
+  padding: 7px 12px;
+  border: 1px solid #ffffff26;
+  border-radius: 6px;
+  background: var(--accent);
+  font-weight: 500;
+}
+
+.canvas .canvas-delete-actions button.canvas-delete-confirm {
+  border-color: #ffffff20;
+  background: #b91c1c;
+  color: #fff;
+}
+
+.canvas .canvas-delete-actions button:hover:enabled {
+  filter: brightness(1.18);
+}

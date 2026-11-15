@@ -1,0 +1,51 @@
+.canvas-widget-layer {
+  position: absolute;
+  inset: min(52px, 16%) 0 min(64px, 20%) 0;
+  pointer-events: none;
+}
+
+.canvas-stage:is(:fullscreen, [data-expanded="true"]) .canvas-widget-layer {
+  top: 0;
+}
+
+.canvas-game-widget {
+  position: absolute;
+  top: calc(var(--widget-inset) + (100% - 2 * var(--widget-inset)) * var(--widget-y));
+  left: calc(var(--widget-inset) + (100% - 2 * var(--widget-inset)) * var(--widget-x));
+  width: max-content;
+  max-width: calc(100% - 2 * var(--widget-inset));
+  max-height: calc(100% - 2 * var(--widget-inset));
+  transform: translate(calc(-100% * var(--widget-x)), calc(-100% * var(--widget-y)));
+  cursor: grab;
+  pointer-events: auto;
+  user-select: none;
+}
+
+.canvas-game-widget[data-dragging="true"] {
+  z-index: 1;
+  cursor: grabbing;
+}
+
+.canvas-widget-menu {
+  z-index: 3;
+  max-height: var(--radix-dropdown-menu-content-available-height);
+  overflow: auto;
+}
+
+.canvas-widget-menu-check {
+  display: grid;
+  width: 14px;
+  height: 14px;
+  place-items: center;
+}
+
+.canvas-widget-menu-check svg {
+  display: block;
+  color: var(--foreground);
+}
+
+.canvas-widget-menu-empty {
+  padding: 7px 8px 5px;
+  color: var(--muted-foreground);
+  font-size: 12px;
+}

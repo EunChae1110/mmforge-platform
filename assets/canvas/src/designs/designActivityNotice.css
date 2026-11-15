@@ -1,0 +1,65 @@
+.canvas-activity-backdrop {
+  --aura-size: clamp(56px, 13dvh, 76px);
+  position: absolute;
+  z-index: 3;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  background: rgb(0 0 0 / 34%);
+}
+
+.canvas:has(.canvas-activity-backdrop[data-preview-ready="false"]) .canvas-empty {
+  visibility: hidden;
+}
+
+.canvas-activity-backdrop[data-preview-ready="true"] {
+  --aura-size: 42px;
+}
+
+.canvas-activity-backdrop[data-preview-ready="true"] .canvas-activity-aura::after {
+  padding: 3px;
+}
+
+.canvas-activity-aura {
+  position: relative;
+  width: var(--aura-size);
+  aspect-ratio: 1;
+  filter: drop-shadow(0 0 5px #6697f27a);
+}
+
+.canvas-activity-aura::after {
+  position: absolute;
+  inset: 0;
+  padding: 5px;
+  border-radius: 50% 50% 48% 52% / 48% 52% 50% 50%;
+  background: conic-gradient(from 25deg, #5578aa, #83b6f2 24%, #d4e8ff 37%, #83b6f2 48%, #5578aa 66%, #769bd4 85%, #5578aa);
+  mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  mask-composite: exclude;
+  content: "";
+}
+
+.canvas-activity-text {
+  position: absolute;
+  top: calc(50% + var(--aura-size) / 2 + 16px);
+  inset-inline: var(--canvas-inset);
+  display: grid;
+  gap: 4px;
+  justify-items: center;
+  color: #edf2ff;
+  text-align: center;
+  text-shadow: 0 1px 6px #000, 0 1px 14px #000;
+}
+
+.canvas-activity-text strong {
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.canvas-activity-text span {
+  max-width: 100%;
+  overflow: hidden;
+  color: #c7cedf;
+  font: 11px ui-monospace, monospace;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

@@ -1,11 +1,14 @@
 import * as DropdownMenu from '@radix-ui/react-dropdown-menu'
-import { Copy, Ellipsis, ExternalLink, Github, LayoutTemplate, PanelLeftClose, PanelLeftOpen, SquareDashed } from 'lucide-react'
-import { Component, useEffect, useRef, useState, type ComponentType, type ReactNode } from 'react'
+import { Copy, Ellipsis, ExternalLink, Github, LayoutTemplate, PanelLeftClose, PanelLeftOpen, SquareDashed, Trash2 } from 'lucide-react'
+import { useCallback, useEffect, useRef, useState, type ComponentType } from 'react'
 import designEdits from 'virtual:design-edits'
 import { CanvasStage } from './CanvasStage'
-import { DesignActivityNotice, useDesignActivity } from './DesignActivityNotice'
-import { ReleaseUpdates } from './ReleaseUpdates'
-import { designSavedEvent, type DesignSaved } from './designActivity'
+import { PreviewBoundary } from './PreviewBoundary'
+import { DeleteFileDialog } from '../designs/DeleteFileDialog'
+import { useDesignActivity } from '../designs/DesignActivityNotice'
+import { designSavedEvent, type DesignSaved } from '../shared/designActivity'
+import { designDeletedEvent, type DesignDeleted } from '../shared/designFiles'
+import { ReleaseUpdates } from '../updates/ReleaseUpdates'
 
 type DesignModule = {
   default?: ComponentType
@@ -33,28 +36,16 @@ function designUrl(filename: string | null) {
   return url
 }
 
-class PreviewBoundary extends Component<{ children: ReactNode }, { failed: boolean }> {
-  state = { failed: false }
-
-  static getDerivedStateFromError() {
-    return { failed: true }
-  }
-
-  render() {
-    if (this.state.failed) {
-      return <p className="canvas-message" data-mmforge-preview-error role="alert">This design couldn’t render. Check the browser console.</p>
-    }
-    return this.props.children
-  }
-}
-
 export function Canvas() {
   const [filename, setFilename] = useState(() => new URLSearchParams(location.search).get('design'))
   const [sidebarOpen, setSidebarOpen] = useState(true)
   const [gameMode, setGameMode] = useState(false)
   const [gameScreenshot, setGameScreenshot] = useState<File | null>(null)
   const [copyStatus, setCopyStatus] = useState<{ text: string } | null>(null)
+  const [deleteTarget, setDeleteTarget] = useState<string | null>(null)
   const controlsRef = useRef<HTMLDivElement>(null)
+  const sidebarToggleRef = useRef<HTMLButtonElement>(null)
+  const deleteTriggerRef = useRef<HTMLElement | null>(null)
   const activity = useDesignActivity()
   const activityActive = activity !== null && activity.phase !== 'done'
 
@@ -63,24 +54,42 @@ export function Canvas() {
   const SidebarIcon = sidebarOpen ? PanelLeftClose : PanelLeftOpen
   const sidebarAction = sidebarOpen ? 'Collapse sidebar' : 'Expand sidebar'
 
+  const selectDesign = useCallback((nextFilename: string | null) => {
+    history.replaceState({ ...history.state, followDesign: null }, '', designUrl(nextFilename))
+    setFilename(nextFilename)
+  }, [])
+
+  const clearDeletedSelection = useCallback((deleted: string) => {
+    if (new URLSearchParams(location.search).get('design') === deleted) selectDesign(null)
+  }, [selectDesign])
+
   useEffect(() => {
     const hot = import.meta.hot
     if (!hot) return
 
-    function followSavedDesign({ filename: next, owners }: DesignSaved) {
+    function followSavedDesign({ filename: next, owners, widget }: DesignSaved) {
       const current = new URLSearchParams(location.search).get('design')
       if (!current || current === next || owners.includes(current)) return
 
       const target = designs.find((item) => item.filename === next)
+      if (widget && !target?.Preview) return
       const destination = target && !target.Preview ? null : next
       // Update the URL before Vite reloads the page to discover newly added designs.
       history.replaceState({ ...history.state, followDesign: destination }, '', designUrl(destination))
       setFilename(destination)
     }
 
+    function followDeletedDesign({ filename }: DesignDeleted) {
+      clearDeletedSelection(filename)
+    }
+
     hot.on(designSavedEvent, followSavedDesign)
-    return () => hot.off(designSavedEvent, followSavedDesign)
-  }, [])
+    hot.on(designDeletedEvent, followDeletedDesign)
+    return () => {
+      hot.off(designSavedEvent, followSavedDesign)
+      hot.off(designDeletedEvent, followDeletedDesign)
+    }
+  }, [clearDeletedSelection])
 
   useEffect(() => {
     const pending = history.state?.followDesign
@@ -97,9 +106,12 @@ export function Canvas() {
     return () => window.clearTimeout(timeout)
   }, [copyStatus])
 
-  function selectDesign(nextFilename: string | null) {
-    history.replaceState({ ...history.state, followDesign: null }, '', designUrl(nextFilename))
-    setFilename(nextFilename)
+  function dismissDeleteDialog(deleted: boolean) {
+    const trigger = deleteTriggerRef.current
+    deleteTriggerRef.current = null
+    setDeleteTarget(null)
+    if (!deleted && trigger?.isConnected) trigger.focus()
+    else sidebarToggleRef.current?.focus()
   }
 
   async function copyDesignPath(filename: string) {
@@ -116,6 +128,7 @@ export function Canvas() {
       <div className="canvas-controls" data-sidebar-open={sidebarOpen} ref={controlsRef}>
         <div className="canvas-title">
           <button
+            ref={sidebarToggleRef}
             type="button"
             className="canvas-icon-button canvas-sidebar-toggle"
             aria-label={sidebarAction}
@@ -149,6 +162,7 @@ export function Canvas() {
                 const name = filename.slice(0, -'.tsx'.length)
                 const lastEdit = designEdits[filename]
                 const editId = 'design-edit-' + encodeURIComponent(filename)
+                const menuId = 'design-menu-' + encodeURIComponent(filename)
                 return (
                   <li className="canvas-file-row" key={filename} data-selected={design?.filename === filename}>
                     <button
@@ -172,6 +186,7 @@ export function Canvas() {
                     </button>
                     <DropdownMenu.Root modal={false}>
                       <DropdownMenu.Trigger
+                        id={menuId}
                         className="canvas-icon-button canvas-file-more"
                         aria-label={'More options for ' + name}
                         title="More options"
@@ -179,7 +194,15 @@ export function Canvas() {
                         <Ellipsis aria-hidden="true" />
                       </DropdownMenu.Trigger>
                       <DropdownMenu.Portal>
-                        <DropdownMenu.Content className="canvas-file-menu" align="end" sideOffset={6} collisionPadding={8}>
+                        <DropdownMenu.Content
+                          className="canvas-file-menu"
+                          align="end"
+                          sideOffset={6}
+                          collisionPadding={8}
+                          onCloseAutoFocus={event => {
+                            if (deleteTriggerRef.current?.id === menuId) event.preventDefault()
+                          }}
+                        >
                           <DropdownMenu.Group>
                             <DropdownMenu.Item className="canvas-file-menu-item" asChild>
                               <a href={designUrl(filename).href} target="_blank" rel="noopener noreferrer">
@@ -192,6 +215,18 @@ export function Canvas() {
                               Copy file path
                             </DropdownMenu.Item>
                           </DropdownMenu.Group>
+                          {import.meta.env.MMFORGE_LOCAL_ACTIONS && (
+                            <>
+                              <DropdownMenu.Separator className="canvas-file-menu-separator" />
+                              <DropdownMenu.Item className="canvas-file-menu-item canvas-file-menu-danger" onSelect={() => {
+                                deleteTriggerRef.current = document.getElementById(menuId)
+                                setDeleteTarget(filename)
+                              }}>
+                                <Trash2 aria-hidden="true" />
+                                Delete file
+                              </DropdownMenu.Item>
+                            </>
+                          )}
                         </DropdownMenu.Content>
                       </DropdownMenu.Portal>
                     </DropdownMenu.Root>
@@ -209,11 +244,13 @@ export function Canvas() {
         target="_blank"
         rel="noopener noreferrer"
         aria-label="MMForge on GitHub (opens in a new tab)"
-        title="MMForge on GitHub"
       >
         <Github aria-hidden="true" />
       </a>
-      {import.meta.env.DEV && <ReleaseUpdates activityActive={activityActive} />}
+      {import.meta.env.MMFORGE_LOCAL_ACTIONS && deleteTarget && (
+        <DeleteFileDialog filename={deleteTarget} onDismiss={dismissDeleteDialog} onDeleted={clearDeletedSelection} />
+      )}
+      {import.meta.env.MMFORGE_LOCAL_ACTIONS && <ReleaseUpdates activityActive={activityActive} />}
 
       <CanvasStage
         key={filename ?? undefined}
@@ -222,6 +259,7 @@ export function Canvas() {
         controlsRef={controlsRef}
         sidebarOpen={sidebarOpen}
         previewLocked={activityActive}
+        activity={activity}
         gameMode={gameMode}
         onGameModeChange={setGameMode}
         gameScreenshot={gameScreenshot}
@@ -239,7 +277,6 @@ export function Canvas() {
           </p>
         )}
       </CanvasStage>
-      <DesignActivityNotice live={activity} active={activityActive} />
     </div>
   )
 }

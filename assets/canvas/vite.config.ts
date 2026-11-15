@@ -4,7 +4,8 @@ import { fileURLToPath, pathToFileURL } from 'node:url'
 import react from '@vitejs/plugin-react'
 import { defineConfig, type Plugin } from 'vite'
 import { canvasUpdate } from './canvas-update'
-import { designActivityEvent, designSavedEvent, type DesignActivity, type DesignSaved } from './src/designActivity'
+import { designActivityEvent, designSavedEvent, widgetOwner, type DesignActivity, type DesignSaved } from './src/shared/designActivity'
+import { designFiles } from './src/server/designFiles'
 
 function designEdits(): Plugin {
   const id = 'virtual:design-edits'
@@ -52,15 +53,17 @@ function designEdits(): Plugin {
         const name = relative(directory, file)
         if (!name || name === '..' || name.startsWith('..' + sep) || isAbsolute(name) || !/\.(tsx?|jsx?|css|html)$/.test(name)) return
         const path = 'designs/' + name.split(sep).join('/')
+        const owner = widgetOwner(path)
         const now = Date.now()
         const saved: DesignActivity = {
           phase: event === 'add' ? 'created' : 'updated', path, until: now + 2800, source: 'filesystem',
         }
         if (agentActivity && agentActivity.until > now) {
+          const matches = agentActivity.path === path || (owner && agentActivity.path === 'designs/' + owner)
           if (agentActivity.phase === 'done') {
-            if (agentActivity.path === path) return
+            if (matches) return
           } else {
-            if (agentActivity.path !== path) return
+            if (!matches) return
             // Restore the preview after saving while the activity continues until `done`.
             agentActivity = { ...agentActivity, previewReady: true }
             publish(agentActivity)
@@ -97,6 +100,13 @@ function designEdits(): Plugin {
       handler({ file, modules, type }) {
         const name = relative(directory, file)
         if (!name || name === '..' || name.startsWith('..' + sep) || isAbsolute(name)) return
+        const owner = widgetOwner('designs/' + name.split(sep).join('/'))
+        if (name.startsWith('widgets' + sep)) {
+          if (owner && this.environment.name === 'client' && type !== 'delete' && /\.(tsx?|jsx?|css|html)$/.test(name)) {
+            this.environment.hot.send(designSavedEvent, { filename: owner, owners: [owner], widget: true } satisfies DesignSaved)
+          }
+          return
+        }
 
         const filename = dirname(file) === directory && file.endsWith('.tsx') ? name : null
         if (this.environment.name === 'client' && type !== 'delete' && /\.(tsx?|jsx?|css|html)$/.test(name)) {
@@ -133,15 +143,24 @@ function designEdits(): Plugin {
   }
 }
 
-export default defineConfig({
-  plugins: [react(), designEdits(), canvasUpdate(fileURLToPath(new URL('.', import.meta.url)))],
-  publicDir: fileURLToPath(new URL('./public', import.meta.url)),
-  define: {
-    __MMFORGE_WORKSPACE__: JSON.stringify(process.cwd()),
-    __MMFORGE_WORKSPACE_URL__: JSON.stringify(pathToFileURL(process.cwd() + sep).href),
-  },
-  server: {
-    host: 'localhost',
-    port: 5173,
-  },
+export default defineConfig(({ command, mode, isPreview }) => {
+  const localActions = command === 'serve' && !isPreview && mode !== 'production' && process.env.NODE_ENV !== 'production'
+
+  return {
+    plugins: [
+      react(),
+      designEdits(),
+      ...(localActions ? [designFiles(), canvasUpdate(fileURLToPath(new URL('.', import.meta.url)))] : []),
+    ],
+    publicDir: fileURLToPath(new URL('./public', import.meta.url)),
+    define: {
+      'import.meta.env.MMFORGE_LOCAL_ACTIONS': JSON.stringify(localActions),
+      __MMFORGE_WORKSPACE__: JSON.stringify(process.cwd()),
+      __MMFORGE_WORKSPACE_URL__: JSON.stringify(pathToFileURL(process.cwd() + sep).href),
+    },
+    server: {
+      host: 'localhost',
+      port: 5173,
+    },
+  }
 })

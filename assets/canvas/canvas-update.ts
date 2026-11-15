@@ -1,9 +1,9 @@
 import { execFile } from 'node:child_process'
 import { access, lstat, mkdir, mkdtemp, readFile, rename, rm } from 'node:fs/promises'
-import type { IncomingMessage, ServerResponse } from 'node:http'
 import { join, resolve } from 'node:path'
 import { promisify } from 'node:util'
 import type { Plugin } from 'vite'
+import { respond, sameLocalOrigin } from './src/server/localRequest'
 
 const repository = 'https://github.com/EunChae1110/mmforge-platform'
 const latestRelease = 'https://api.github.com/repos/EunChae1110/mmforge-platform/releases/latest'
@@ -173,19 +173,6 @@ async function installRelease(canvas: string, release: Release) {
       await rm(lock, { recursive: true, force: true })
     }
   }
-}
-
-function sameLocalOrigin(request: IncomingMessage) {
-  const host = request.headers.host ?? ''
-  const loopback = ['::1', '127.0.0.1', '::ffff:127.0.0.1']
-  return loopback.includes(request.socket.remoteAddress ?? '') &&
-    /^(?:localhost|127\.0\.0\.1|\[::1\])(?::\d+)?$/.test(host) &&
-    (request.headers.origin === 'http://' + host || request.headers.origin === 'https://' + host)
-}
-
-function respond(response: ServerResponse, status: number, body: object) {
-  response.writeHead(status, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' })
-  response.end(JSON.stringify(body))
 }
 
 export function canvasUpdate(canvas: string): Plugin {

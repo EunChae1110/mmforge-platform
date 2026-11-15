@@ -1,7 +1,7 @@
 <div align="center">
   <img src="assets/canvas/public/mmforge-icon.png" alt="MMForge logo" width="80" height="80">
   <h1>mmforge-platform</h1>
-  <p>Design and prototype game mod menu UIs.</p>
+  <p>Design cheat menus and HUD widgets with AI.</p>
   <a href="https://github.com/EunChae1110/mmforge-platform">
     <img src="https://img.shields.io/github/stars/EunChae1110/mmforge-platform?style=social" alt="GitHub stars">
   </a>
@@ -10,30 +10,9 @@
   </a>
 </div>
 
-mmforge-platform is a AI design skill for game mod menus, also called cheat. Use it with Cursor, Claude Code, Codex or more to build a menu from a brief, recreate one from a screenshot, or edit a specific element in the canvas. The preview runs locally with interactive tabs, toggles, sliders, dropdowns, and keybind controls backed by demo state.
+Use MMForge with Cursor, Claude Code, or Codex. Build a cheat menu from a prompt, recreate one from a screenshot, or select a control in the local Canvas and ask AI to change it. Controls and HUD readings use demo data.
 
 ![SpectraX menu open in the MMForge canvas](assets/readme/spectrax.png)
-
-![Neverlose menu open in the MMForge canvas](assets/readme/neverlose.png)
-
-## Concept
-
-A brief, a screenshot, or a copied element goes in. The menu lands in the local canvas. The last step is asking your AI to generate the UI for what you want to present.
-
-```mermaid
-flowchart TD
-  brief[Brief] --> ask{What you asked}
-  shot[Screenshot] --> ask
-  element[Copied element] --> ask
-  ask -->|New menu| layout[Pick navigation and controls]
-  ask -->|Recreation| match[Match proportions, density, and states]
-  ask -->|Edit| one[Change that one control]
-  layout --> file["designs/name.tsx"]
-  match --> file
-  one --> file
-  file --> canvas[Local canvas]
-  canvas --> present["Ask your AI to generate the UI for what code you want to present"]
-```
 
 ## Install
 
@@ -43,39 +22,52 @@ npx skills add EunChae1110/mmforge-platform --skill mmforge-platform
 
 Add `-g` to install it for every project on this machine. Add `-y` to skip the prompts.
 
-The canvas needs Node.js. From the installed skill, install its dependencies and start the preview:
+Run these commands from the MMForge project root. For a standalone setup, copy the installed skill's `assets/canvas/` contents into your workspace first.
 
 ```bash
-cd assets/canvas
 npm ci
 npm run dev
 ```
 
-Open the URL Vite prints. The root URL is an empty canvas. A design is `http://localhost:5173/?design=example.tsx`.
-
-## Updates
-
-The local canvas checks [GitHub Releases](https://github.com/EunChae1110/mmforge-platform/releases) on launch. When a newer stable release is available, MMForge shows its release notes and lets you install it or keep your current version. Use the download icon beside the GitHub link to check again or revisit a skipped release.
-
-In-app installation uses Git and npm. It preserves the `designs/` folder and asks you to restart the local canvas after installation. For a checkout of the MMForge skill repository, commit or stash local changes before installing. A standalone canvas that belongs to your own Git repository should be upgraded through that repository.
-
-When publishing a release, set `assets/canvas/package.json` and its lockfile to the release version, then publish a GitHub release with a matching tag such as `v0.2.0` and add release notes.
+Open the URL Vite prints. Pick a design from the sidebar, or open it directly with `?design=example.tsx`.
 
 ## Use
 
-Ask in your own words and the agent picks the skill up by itself.
+Start a new agent chat after installing. Try one of these prompts.
 
 ```
-Design a mod menu with a left category rail, grouped options, and a compact keybind row.
-Recreate this cheat menu UI from the screenshot. Match the density and the selected tab.
-Change the slider row so the value sits above the track.
+Design a cheat menu with a sidebar, grouped controls, and a keybind row.
+Recreate this cheat menu from the screenshot.
+Move the selected slider's value above the track.
+Add a player list and a weapon skin widget to Neverlose.
 ```
 
-It builds or edits the menu in the canvas, then gives you the design file and the localhost preview link. Start a new agent chat after installing so the skill is picked up.
+The agent returns the design file and a localhost preview link.
 
-## What it does
+## Game Preview and widgets
 
-- **New menu.** Picks a navigation structure and a settings layout for the task, then implements it as a design you can click.
-- **Recreation.** Matches a reference’s proportions, density, control shapes, and selected states.
-- **Edit.** Uses the copied element context, the design path, group, label, control type, and CSS selector, and changes only that control.
-- **Mouse controls.** Custom dropdowns and action menus, real pointer interaction, and a check that the menu still works at its intended width.
+1. Open a menu and switch to **Game Preview**. Use **Load game screenshot** to add a background.
+2. Open **Widgets**, enable the overlays, and drag them into position. Positions and visibility are saved per menu.
+3. Uncheck **Show menu** to see the HUD by itself.
+
+![Neverlose with Player List, Weapon, Keybinds, and Watermark widgets in Game Preview](assets/readme/neverlose-widgets.png)
+
+Widgets go in the folder matching their menu. For `designs/neverlose.tsx`, put widget files in `designs/widgets/neverlose/`. Each widget file default-exports a React component. Use `widgetTitle` to set its picker label. [HUD widget design guide](references/hud-widget-design.md)
+
+## AI edit status
+
+During an AI edit, the Canvas shows a centered aura with the phase and design name below it. You can interact with the preview again as soon as the edit finishes.
+
+Agents can signal an existing widget edit from the canvas project root.
+
+```bash
+npm run design-activity -- editing designs/widgets/neverlose/weapon.tsx
+# Save the widget changes.
+npm run design-activity -- done designs/widgets/neverlose/weapon.tsx
+```
+
+## Updates
+
+Use the download icon in the Canvas to check for updates and read release notes. In-app updates use Git and npm. They keep your `designs/` folder and ask you to restart the Canvas. [GitHub Releases](https://github.com/EunChae1110/mmforge-platform/releases)
+
+If you are running a checkout of the skill repository, commit or stash local changes before updating. Update a standalone Canvas through its own repository. To publish a release, set the version in `assets/canvas/package.json` and its lockfile, then publish a GitHub release with the matching version tag.

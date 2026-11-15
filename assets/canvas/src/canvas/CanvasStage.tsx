@@ -1,7 +1,11 @@
 import * as DropdownMenu from '@radix-ui/react-dropdown-menu'
 import { Bot, Copy, ExternalLink, Gamepad2, Hand, ImagePlus, Maximize, MessageSquarePlus, Minimize, Minus, MousePointer2, Plus, Scan, X } from 'lucide-react'
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type PointerEvent, type ReactNode, type RefObject } from 'react'
+import { CanvasHint } from '../ui/CanvasHint'
+import { DesignActivityNotice } from '../designs/DesignActivityNotice'
+import { type DesignActivity } from '../shared/designActivity'
 import { describeElement, draftUrl, elementContext, previewElement, requestElementAnnotation, supportsElementAnnotations } from './elementContext'
+import { GameWidgetLayer, GameWidgetMenu, useGameWidgets } from './GameWidgets'
 
 const minZoom = 0.1
 const maxZoom = 4
@@ -73,12 +77,13 @@ function fitPreview(viewport: HTMLElement, frame: HTMLElement, controls: DOMRect
   return beside.zoom >= below.zoom ? beside : below
 }
 
-export function CanvasStage({ designPath, previewWidth, controlsRef, sidebarOpen, previewLocked, gameMode, onGameModeChange, gameScreenshot, onGameScreenshotChange, children }: {
+export function CanvasStage({ designPath, previewWidth, controlsRef, sidebarOpen, previewLocked, activity, gameMode, onGameModeChange, gameScreenshot, onGameScreenshotChange, children }: {
   designPath?: string
   previewWidth: number
   controlsRef: RefObject<HTMLDivElement | null>
   sidebarOpen: boolean
   previewLocked: boolean
+  activity: DesignActivity | null
   gameMode: boolean
   onGameModeChange: (enabled: boolean) => void
   gameScreenshot: File | null
@@ -113,6 +118,8 @@ export function CanvasStage({ designPath, previewWidth, controlsRef, sidebarOpen
   const [fitView, setFitView] = useState<View>(centeredView)
   const [dimensions, setDimensions] = useState('')
   const [previewVisible, setPreviewVisible] = useState(false)
+  const gameWidgets = useGameWidgets(designPath)
+  const gameMenuHidden = gameMode && !gameWidgets.menuVisible
   const view = gameMode ? { ...gameFit, ...gamePosition } : manualView ?? fitView
   const selecting = !gameMode && tool === 'select' && Boolean(dimensions)
   const hoverInfo = selecting && !previewLocked && hovered ? describeElement(hovered) : null
@@ -304,7 +311,6 @@ export function CanvasStage({ designPath, previewWidth, controlsRef, sidebarOpen
   useLayoutEffect(() => {
     if (!previewLocked) return
     setHovered(null)
-    if (document.fullscreenElement === stageRef.current) void document.exitFullscreen().catch(() => {})
     const viewport = viewportRef.current
     const drag = dragRef.current
     if (!drag) return
@@ -500,10 +506,13 @@ export function CanvasStage({ designPath, previewWidth, controlsRef, sidebarOpen
             }} />
           )}
         </div>
+        {gameMode && gameWidgets.widgets.length > 0 && <GameWidgetLayer state={gameWidgets} />}
         {designPath ? (
           <figure
             ref={frameRef}
             className="canvas-frame"
+            inert={gameMenuHidden}
+            data-game-menu-hidden={gameMenuHidden}
             style={{
               width: previewWidth,
               transform: 'translate(calc(-50% + ' + view.x + 'px), calc(-50% + ' + view.y + 'px)) scale(' + zoom + ')',
@@ -528,13 +537,17 @@ export function CanvasStage({ designPath, previewWidth, controlsRef, sidebarOpen
             <span className="canvas-selection-type">{selection.type}</span>
             <span role="status">{selection.status}</span>
           </div>
-          <button type="button" className="canvas-icon-button" aria-label="Copy element context" title="Copy element context" onClick={() => void copyContext(selection)}>
-            <Copy aria-hidden="true" />
-          </button>
+          <CanvasHint label="Copy element context">
+            <button type="button" className="canvas-icon-button" aria-label="Copy element context" onClick={() => void copyContext(selection)}>
+              <Copy aria-hidden="true" />
+            </button>
+          </CanvasHint>
           <DropdownMenu.Root modal={false}>
-            <DropdownMenu.Trigger className="canvas-icon-button" aria-label="Open draft" title="Open draft">
-              <ExternalLink aria-hidden="true" />
-            </DropdownMenu.Trigger>
+            <CanvasHint label="Open draft">
+              <DropdownMenu.Trigger className="canvas-icon-button" aria-label="Open draft">
+                <ExternalLink aria-hidden="true" />
+              </DropdownMenu.Trigger>
+            </CanvasHint>
             <DropdownMenu.Portal>
               <DropdownMenu.Content className="canvas-file-menu" side="top" align="end" sideOffset={8} collisionPadding={8}>
                 <DropdownMenu.Group>
@@ -556,9 +569,11 @@ export function CanvasStage({ designPath, previewWidth, controlsRef, sidebarOpen
               </DropdownMenu.Content>
             </DropdownMenu.Portal>
           </DropdownMenu.Root>
-          <button type="button" className="canvas-icon-button" aria-label="Clear selection" title="Clear selection" onClick={() => setSelection(null)}>
-            <X aria-hidden="true" />
-          </button>
+          <CanvasHint label="Clear selection">
+            <button type="button" className="canvas-icon-button" aria-label="Clear selection" onClick={() => setSelection(null)}>
+              <X aria-hidden="true" />
+            </button>
+          </CanvasHint>
         </div>
       )}
 
@@ -573,106 +588,80 @@ export function CanvasStage({ designPath, previewWidth, controlsRef, sidebarOpen
               }
               event.currentTarget.value = ''
             }} />
-            <button type="button" className="canvas-icon-button" aria-label="Load game screenshot" title="Load game screenshot" onClick={() => screenshotInputRef.current?.click()}>
-              <ImagePlus aria-hidden="true" />
-            </button>
-            {gameScreenshot && (
-              <button type="button" className="canvas-icon-button" aria-label="Clear game screenshot" title="Clear game screenshot" onClick={() => onGameScreenshotChange(null)}>
-                <X aria-hidden="true" />
+            <CanvasHint label="Load game screenshot">
+              <button type="button" className="canvas-icon-button" aria-label="Load game screenshot" onClick={() => screenshotInputRef.current?.click()}>
+                <ImagePlus aria-hidden="true" />
               </button>
+            </CanvasHint>
+            {gameScreenshot && (
+              <CanvasHint label="Clear game screenshot">
+                <button type="button" className="canvas-icon-button" aria-label="Clear game screenshot" onClick={() => onGameScreenshotChange(null)}>
+                  <X aria-hidden="true" />
+                </button>
+              </CanvasHint>
             )}
-            <button type="button" className="canvas-icon-button" aria-label="Center menu" title="Center menu" disabled={!dimensions} onClick={() => setGamePosition(null)}>
-              <Scan aria-hidden="true" />
-            </button>
-            <button type="button" className="canvas-icon-button" aria-label={fullscreen || expanded ? 'Exit fullscreen' : 'Fullscreen'} title={fullscreen || expanded ? 'Exit fullscreen' : 'Fullscreen'} onClick={() => void toggleFullscreen()}>
-              {fullscreen || expanded ? <Minimize aria-hidden="true" /> : <Maximize aria-hidden="true" />}
-            </button>
+            {designPath && <GameWidgetMenu key={String(previewLocked)} state={gameWidgets} containerRef={stageRef} />}
+            <CanvasHint label="Center menu">
+              <button type="button" className="canvas-icon-button" aria-label="Center menu" disabled={!dimensions || gameMenuHidden} onClick={() => setGamePosition(null)}>
+                <Scan aria-hidden="true" />
+              </button>
+            </CanvasHint>
+            <CanvasHint label={fullscreen || expanded ? 'Exit fullscreen' : 'Fullscreen'}>
+              <button type="button" className="canvas-icon-button" aria-label={fullscreen || expanded ? 'Exit fullscreen' : 'Fullscreen'} onClick={() => void toggleFullscreen()}>
+                {fullscreen || expanded ? <Minimize aria-hidden="true" /> : <Maximize aria-hidden="true" />}
+              </button>
+            </CanvasHint>
           </div>
         ) : (
           <div className="canvas-mode-tools canvas-edit-tools" inert={switchingMode}>
-            <button
-              type="button"
-              className="canvas-icon-button"
-              aria-label="Pointer tool"
-              aria-pressed={tool === 'pointer'}
-              title="Pointer tool"
-              onClick={() => chooseTool('pointer')}
-            >
-              <MousePointer2 aria-hidden="true" />
-            </button>
-            <button
-              type="button"
-              className="canvas-icon-button"
-              aria-label="Hand tool"
-              aria-pressed={tool === 'pan'}
-              title="Hand tool"
-              onClick={() => chooseTool('pan')}
-            >
-              <Hand aria-hidden="true" />
-            </button>
-            <button
-              type="button"
-              className="canvas-icon-button"
-              aria-label="Select element"
-              aria-pressed={selecting}
-              title="Select element for AI feedback"
-              disabled={!dimensions}
-              onClick={() => chooseTool(selecting ? 'pointer' : 'select')}
-            >
-              <Scan aria-hidden="true" />
-            </button>
+            <CanvasHint label="Pointer tool">
+              <button type="button" className="canvas-icon-button" aria-label="Pointer tool" aria-pressed={tool === 'pointer'} onClick={() => chooseTool('pointer')}>
+                <MousePointer2 aria-hidden="true" />
+              </button>
+            </CanvasHint>
+            <CanvasHint label="Hand tool">
+              <button type="button" className="canvas-icon-button" aria-label="Hand tool" aria-pressed={tool === 'pan'} onClick={() => chooseTool('pan')}>
+                <Hand aria-hidden="true" />
+              </button>
+            </CanvasHint>
+            <CanvasHint label="Select element for AI feedback">
+              <button type="button" className="canvas-icon-button" aria-label="Select element" aria-pressed={selecting} disabled={!dimensions} onClick={() => chooseTool(selecting ? 'pointer' : 'select')}>
+                <Scan aria-hidden="true" />
+              </button>
+            </CanvasHint>
 
             <span className="canvas-tool-divider" aria-hidden="true" />
 
-            <button
-              type="button"
-              className="canvas-icon-button"
-              aria-label="Zoom out"
-              title="Zoom out (Ctrl + scroll)"
-              disabled={zoom <= Math.min(minZoom, fitView.zoom)}
-              onClick={() => zoomBy(1 / zoomStep)}
-            >
-              <Minus aria-hidden="true" />
-            </button>
+            <CanvasHint label="Zoom out" shortcut="zoom">
+              <button type="button" className="canvas-icon-button" aria-label="Zoom out" disabled={zoom <= Math.min(minZoom, fitView.zoom)} onClick={() => zoomBy(1 / zoomStep)}>
+                <Minus aria-hidden="true" />
+              </button>
+            </CanvasHint>
             <span className="canvas-zoom" aria-label="Zoom level">{Math.round(zoom * 100)}%</span>
-            <button
-              type="button"
-              className="canvas-icon-button"
-              aria-label="Zoom in"
-              title="Zoom in (Ctrl + scroll)"
-              disabled={zoom >= maxZoom}
-              onClick={() => zoomBy(zoomStep)}
-            >
-              <Plus aria-hidden="true" />
-            </button>
-            <button
-              type="button"
-              className="canvas-icon-button"
-              aria-label="Fit to canvas"
-              title="Fit to canvas"
-              onClick={() => setManualView(null)}
-            >
-              <Maximize aria-hidden="true" />
-            </button>
+            <CanvasHint label="Zoom in" shortcut="zoom">
+              <button type="button" className="canvas-icon-button" aria-label="Zoom in" disabled={zoom >= maxZoom} onClick={() => zoomBy(zoomStep)}>
+                <Plus aria-hidden="true" />
+              </button>
+            </CanvasHint>
+            <CanvasHint label="Fit to canvas">
+              <button type="button" className="canvas-icon-button" aria-label="Fit to canvas" onClick={() => setManualView(null)}>
+                <Maximize aria-hidden="true" />
+              </button>
+            </CanvasHint>
           </div>
         )}
         <span className="canvas-tool-divider" aria-hidden="true" />
-        <button
-          type="button"
-          className="canvas-mode-switch"
-          role="switch"
-          aria-checked={gameMode}
-          aria-label="Game preview mode"
-          title={gameMode ? 'Switch to Agent Canvas' : 'Switch to Game Preview'}
-          onClick={() => changeMode(!gameMode)}
-        >
-          <span className="canvas-mode-thumb" aria-hidden="true">
-            <Bot className="canvas-mode-agent" />
-            <Gamepad2 className="canvas-mode-game" />
-          </span>
-        </button>
+        <CanvasHint label={gameMode ? 'Switch to Agent Canvas' : 'Switch to Game Preview'}>
+          <button type="button" className="canvas-mode-switch" role="switch" aria-checked={gameMode} aria-label="Game preview mode" onClick={() => changeMode(!gameMode)}>
+            <span className="canvas-mode-thumb" aria-hidden="true">
+              <Bot className="canvas-mode-agent" />
+              <Gamepad2 className="canvas-mode-game" />
+            </span>
+          </button>
+        </CanvasHint>
       </div>
       {gameMode && gameError && <p className="canvas-game-error" role="status">{gameError}</p>}
+      <DesignActivityNotice live={activity} designPath={designPath} />
     </main>
   )
 }

@@ -1,0 +1,68 @@
+.canvas-hint-anchor {
+  position: relative;
+  display: inline-flex;
+  flex: none;
+}
+
+.canvas-hint-anchor > button:disabled {
+  pointer-events: none;
+}
+
+.canvas-hint {
+  position: absolute;
+  z-index: 1;
+  inset: auto auto 100% 50%;
+  width: max-content;
+  max-width: calc(100vw - 16px);
+  padding-bottom: 12px;
+  transform: translateX(calc(-50% + var(--hint-shift, 0px)));
+}
+
+.canvas-hint-anchor > [data-state="open"] + .canvas-hint {
+  visibility: hidden;
+}
+
+.canvas-hint-label {
+  position: relative;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 6px 9px;
+  padding: 6px 8px;
+  border: 1px solid #ffffff26;
+  border-radius: 6px;
+  background: #202023;
+  color: var(--foreground);
+  box-shadow: 0 4px 16px #0008;
+  text-align: center;
+  font-size: 12px;
+  line-height: 1.25;
+}
+
+.canvas-hint-label::after {
+  position: absolute;
+  inset: auto auto -4px clamp(8px, calc(50% - var(--hint-shift, 0px)), calc(100% - 8px));
+  width: 6px;
+  height: 6px;
+  transform: translateX(-50%) rotate(45deg);
+  border-right: 1px solid #ffffff26;
+  border-bottom: 1px solid #ffffff26;
+  background: inherit;
+  content: "";
+}
+
+.canvas-hint-shortcut {
+  color: var(--muted-foreground);
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+.canvas-hint-shortcut kbd {
+  padding: 0 3px;
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  background: var(--background);
+  color: #d4d4d8;
+  font: inherit;
+}

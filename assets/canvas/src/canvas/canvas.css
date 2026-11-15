@@ -252,6 +252,21 @@ body {
   color: var(--muted-foreground);
 }
 
+.canvas-file-menu-separator {
+  height: 1px;
+  margin: 4px;
+  background: var(--border);
+}
+
+.canvas-file-menu-item.canvas-file-menu-danger,
+.canvas-file-menu-danger svg {
+  color: #fda4aa;
+}
+
+.canvas-file-menu-item.canvas-file-menu-danger[data-highlighted] {
+  background: #ef444426;
+}
+
 .canvas-agent-icon {
   display: block;
   flex: none;
@@ -278,14 +293,6 @@ body {
   position: fixed;
   z-index: 3;
   inset: 0;
-}
-
-.canvas:has(.canvas-stage[data-expanded="true"]) .canvas-activity-backdrop {
-  z-index: 4;
-}
-
-.canvas:has(.canvas-stage[data-expanded="true"]) .canvas-activity-announcement {
-  z-index: 5;
 }
 
 .canvas-viewport {
@@ -435,6 +442,11 @@ body {
   transform-origin: center;
 }
 
+.canvas-frame[data-game-menu-hidden="true"] {
+  opacity: 0;
+  pointer-events: none;
+}
+
 .canvas-measure {
   display: flex;
   align-items: center;
@@ -504,7 +516,7 @@ body {
   opacity: 0.5;
 }
 
-.canvas-toolkit[data-idle="true"]:not(:hover, :has(:focus-visible)) {
+.canvas-toolkit[data-idle="true"]:not(:hover, :has(:focus-visible, [data-state="open"])) {
   opacity: 0;
   transform: translateY(calc(100% + var(--canvas-inset)));
   pointer-events: none;
@@ -584,11 +596,11 @@ body {
 }
 
 @media (width < 350px) {
-  .canvas .canvas-edit-tools ~ button.canvas-mode-switch {
+  .canvas .canvas-edit-tools ~ .canvas-hint-anchor > button.canvas-mode-switch {
     --switch-width: 40px;
   }
 
-  .canvas .canvas-edit-tools > button.canvas-icon-button {
+  .canvas .canvas-edit-tools > .canvas-hint-anchor > button.canvas-icon-button {
     width: 27px;
   }
 
@@ -709,100 +721,6 @@ body {
   inset: var(--canvas-inset) var(--canvas-inset) auto auto;
 }
 
-.canvas-update-toggle {
-  position: absolute;
-  z-index: 2;
-  inset: var(--canvas-inset) calc(var(--canvas-inset) + 44px) auto auto;
-}
-
-.canvas-update-dialog {
-  inset: var(--canvas-inset) 0 auto;
-  width: min(480px, calc(100% - 2 * var(--canvas-inset)));
-  max-height: calc(100dvh - 2 * var(--canvas-inset));
-  margin: 0 auto;
-  padding: 16px;
-  border: 1px solid #ffffff22;
-  border-radius: 12px;
-  background: #202023;
-  color: var(--foreground);
-  box-shadow: 0 12px 36px #0008;
-}
-
-.canvas-update-dialog::backdrop {
-  background: #0006;
-}
-
-.canvas-update-header,
-.canvas-update-actions {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  justify-content: space-between;
-  gap: 8px;
-}
-
-.canvas-update-header h2 {
-  margin: 0;
-  font-size: 15px;
-  font-weight: 600;
-}
-
-.canvas-update-versions {
-  color: var(--muted-foreground);
-  font-variant-numeric: tabular-nums;
-}
-
-.canvas-update-versions strong {
-  color: var(--foreground);
-}
-
-.canvas-update-notes {
-  max-height: min(32dvh, 250px);
-  margin-bottom: 10px;
-  padding: 10px 12px;
-  overflow: auto;
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  background: var(--card);
-  line-height: 1.55;
-  overflow-wrap: anywhere;
-  white-space: pre-wrap;
-}
-
-.canvas-update-dialog a {
-  color: #a8c8ff;
-}
-
-.canvas-update-error {
-  color: #ffb0aa;
-}
-
-.canvas-update-actions {
-  justify-content: flex-end;
-  margin-top: 16px;
-}
-
-.canvas .canvas-update-actions button {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 7px 10px;
-  border: 1px solid #ffffff22;
-  border-radius: 6px;
-  background: var(--accent);
-}
-
-.canvas .canvas-update-actions button.canvas-update-primary {
-  border-color: transparent;
-  background: #a8c8ff;
-  color: #161e2d;
-  font-weight: 600;
-}
-
-.canvas .canvas-update-actions button:hover:enabled {
-  filter: brightness(1.15);
-}
-
 .canvas-icon-button svg {
   width: 16px;
   height: 16px;
@@ -821,128 +739,6 @@ body {
   font-size: 12px;
   font-variant-numeric: tabular-nums;
   text-align: center;
-}
-
-.canvas-activity-announcement {
-  position: absolute;
-  z-index: 3;
-  inset: var(--canvas-inset) 0 auto;
-  display: grid;
-  justify-items: center;
-  padding-inline: var(--canvas-inset);
-  pointer-events: none;
-}
-
-.canvas-activity {
-  --notice-accent: #a2e4c6;
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr);
-  align-items: center;
-  gap: 10px;
-  width: min(100%, 320px);
-  padding: 9px 12px 9px 9px;
-  border: 1px solid #ffffff22;
-  border-radius: 12px;
-  background: #202023;
-  box-shadow: 0 8px 24px #0007;
-}
-
-.canvas-activity[data-active="true"] {
-  --notice-accent: #a8c8ff;
-}
-
-.canvas-activity[data-visible="false"] {
-  opacity: 0;
-  transform: translateY(-8px) scale(0.98);
-}
-
-.canvas-activity-icon {
-  display: grid;
-  place-items: center;
-  width: 32px;
-  height: 32px;
-  border-radius: 8px;
-  background: color-mix(in srgb, var(--notice-accent) 14%, transparent);
-  color: var(--notice-accent);
-}
-
-.canvas-activity-icon svg {
-  grid-area: 1 / 1;
-  width: 16px;
-  height: 16px;
-}
-
-.canvas-activity[data-active="true"] .canvas-activity-check,
-.canvas-activity[data-active="false"] .canvas-activity-spinner {
-  opacity: 0;
-}
-
-.canvas-activity-backdrop {
-  position: absolute;
-  z-index: 1;
-  inset: 0;
-  display: grid;
-  place-items: center;
-  background: rgb(0 0 0 / 34%);
-}
-
-.canvas:has(.canvas-activity-backdrop[data-preview-ready="false"]) .canvas-empty {
-  visibility: hidden;
-}
-
-.canvas-activity-backdrop[data-preview-ready="true"] .canvas-activity-aura {
-  width: 42px;
-}
-
-.canvas-activity-backdrop[data-preview-ready="true"] .canvas-activity-aura::after {
-  padding: 3px;
-}
-
-.canvas-activity-aura {
-  position: relative;
-  width: clamp(56px, 13dvh, 76px);
-  aspect-ratio: 1;
-  filter: drop-shadow(0 0 5px #6697f27a);
-}
-
-.canvas-activity-aura::after {
-  position: absolute;
-  inset: 0;
-  padding: 5px;
-  border-radius: 50% 50% 48% 52% / 48% 52% 50% 50%;
-  background: conic-gradient(from 25deg, #5578aa, #83b6f2 24%, #d4e8ff 37%, #83b6f2 48%, #5578aa 66%, #769bd4 85%, #5578aa);
-  mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
-  mask-composite: exclude;
-  content: "";
-}
-
-.canvas-activity-text {
-  display: grid;
-  min-width: 0;
-  gap: 3px;
-}
-
-.canvas-activity-text strong {
-  font-size: 13px;
-  font-weight: 600;
-}
-
-.canvas-activity-text span {
-  overflow: hidden;
-  color: var(--muted-foreground);
-  font: 11px ui-monospace, monospace;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-@media (width < 680px) {
-  .canvas-activity-announcement {
-    top: calc(var(--canvas-inset) + 44px);
-  }
-
-  .canvas:has(.canvas-activity[data-visible="true"]) .canvas-controls[data-sidebar-open="true"] {
-    gap: 70px;
-  }
 }
 
 @media (prefers-reduced-motion: no-preference) {
@@ -1009,30 +805,6 @@ body {
     transform: translateX(0) scale(1);
   }
 
-  .canvas-activity {
-    transform-origin: top center;
-    transition: opacity 220ms ease, transform 260ms cubic-bezier(0.22, 1, 0.36, 1);
-  }
-
-  @starting-style {
-    .canvas-activity[data-visible="true"] {
-      opacity: 0;
-      transform: translateY(-8px) scale(0.98);
-    }
-  }
-
-  .canvas-activity-icon {
-    transition: color 200ms ease, background-color 200ms ease;
-  }
-
-  .canvas-activity-icon svg {
-    transition: opacity 180ms ease;
-  }
-
-  .canvas-activity[data-active="true"] .canvas-activity-spinner {
-    animation: activity-spin 1s linear infinite;
-  }
-
   .canvas-activity-text strong {
     animation: activity-title-enter 200ms ease-out both;
   }
@@ -1050,10 +822,6 @@ body {
 @keyframes canvas-mode-tools-enter {
   from { opacity: 0; transform: translateX(-4px); }
   to { opacity: 1; transform: translateX(0); }
-}
-
-@keyframes activity-spin {
-  to { transform: rotate(360deg); }
 }
 
 @keyframes aura-wave {

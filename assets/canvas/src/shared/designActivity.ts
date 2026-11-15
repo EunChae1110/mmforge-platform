@@ -1,7 +1,12 @@
 export const designActivityEvent = 'mmforge:design-activity'
 export const designSavedEvent = 'mmforge:design-saved'
 
-export type DesignSaved = { filename: string | null; owners: string[] }
+export type DesignSaved = { filename: string | null; owners: string[]; widget?: boolean }
+
+export function widgetOwner(path: string) {
+  const folder = path.match(/^\/?designs\/widgets\/([^/]+)\/.+/)?.[1]
+  return folder ? folder + '.tsx' : null
+}
 
 export type DesignActivity = {
   path: string

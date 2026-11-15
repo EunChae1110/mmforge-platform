@@ -1,5 +1,6 @@
 import { Download, RotateCw, X } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
+import './releaseUpdates.css'
 
 type Release = { tag: string; version: string; notes: string; url: string }
 type UpdateInfo = { version: string; update: Release | null }
